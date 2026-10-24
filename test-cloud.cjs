@@ -12,8 +12,12 @@ assert.doesNotMatch(sql, /grant[^;]+delete/i);
 assert.equal((sql.match(/\(select auth\.uid\(\)\) = user_id/g) || []).length, 4);
 assert.match(sync, /sb_secret_/);
 assert.match(sync, /service_role/);
-assert.match(sync, /delete item\.photoId/);
+const cloudProjection = sync.slice(sync.indexOf('const publicWardrobe'), sync.indexOf('async function currentUser'));
+assert.match(cloudProjection, /const cleanItem/);
+assert.match(cloudProjection, /occasionTheme/);
+assert.match(cloudProjection, /stylePreference/);
+assert.doesNotMatch(cloudProjection, /photoId|imageUrl|imageURL|dataUri|dataURL|base64/i);
 assert.doesNotMatch(config, /sb_secret_/);
 assert.doesNotMatch(config, /service_role/);
 
-console.log('PASS: RLS ownership policies, anonymous denial, no delete grant, secret-key guard, and photo exclusion.');
+console.log('PASS: RLS ownership policies, anonymous denial, no delete grant, secret-key guard, and allowlisted photo-free cloud projection.');

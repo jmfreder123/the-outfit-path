@@ -70,10 +70,51 @@
     if (!gate.open) gate.showModal();
   };
   const publicWardrobe = () => {
-    const copy = globalThis.outfitPathCloud.getData();
-    for (const item of copy.items || []) delete item.photoId;
-    for (const look of copy.looks || []) for (const item of look.items || []) delete item.photoId;
-    return copy;
+    const source = globalThis.outfitPathCloud.getData();
+    const cleanItem = item => ({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      color: item.color,
+      hex: item.hex,
+      style: item.style,
+      season: item.season,
+      available: item.available,
+      notes: item.notes || ''
+    });
+    const cleanAnswers = answerSet => {
+      const clean = {};
+      for (const key of ['shape', 'shoes', 'occasion', 'weather', 'mood', 'finish', 'palette']) {
+        if (typeof answerSet?.[key] === 'string') clean[key] = answerSet[key];
+      }
+      if (typeof answerSet?.walking === 'boolean') clean.walking = answerSet.walking;
+      if (['business', 'business-casual', 'everyday', 'evening', 'sporty', 'streetwear'].includes(answerSet?.occasionTheme)) {
+        clean.occasionTheme = answerSet.occasionTheme;
+      }
+      if (['none', 'feminine', 'masculine', 'androgynous'].includes(answerSet?.stylePreference)) {
+        clean.stylePreference = answerSet.stylePreference;
+      }
+      return clean;
+    };
+    return {
+      version: 1,
+      items: (source.items || []).map(cleanItem),
+      looks: (source.looks || []).map(look => ({
+        id: look.id,
+        items: (look.items || []).map(cleanItem),
+        answers: cleanAnswers(look.answers),
+        created: look.created,
+        rating: look.rating,
+        ...(typeof look.name === 'string' ? { name: look.name } : {})
+      })),
+      ratings: (source.ratings || []).map(rating => ({
+        id: rating.id,
+        y: rating.y,
+        features: {...rating.features}
+      })),
+      name: typeof source.name === 'string' ? source.name : '',
+      learning: source.learning !== false
+    };
   };
 
   async function currentUser() {
