@@ -48,6 +48,11 @@ The browser QA session can render and display implementation captures, but the c
 - PASS: Start over returns to the initial builder state.
 - PASS: Lookbook remains reachable and retains its existing private saved-look behavior.
 - PASS: switching among No preference, Feminine, Masculine, and Androgynous leaves the same wardrobe-piece IDs visible. Style adds an optional learning context feature; it does not create a gender taxonomy or a garment eligibility filter.
+- PASS: the right-side outfit composer now uses the same `garmentArt` path as wardrobe cards and selected-piece rows. Generated catalog assets and account-scoped user photos therefore render consistently instead of falling back to flat vector art.
+- PASS: changing Occasion recomputes the unsaved preview. A live local click-through produced six visibly different sets: Business (black blazer, white shirt, black trousers, loafers, crossbody, watch); Business Casual (rust blazer, cream knit, indigo jeans, loafers, crossbody); Everyday (cobalt hoodie, indigo jeans, loafers, crossbody); Evening (rust blazer, emerald dress, loafers, crossbody, watch); Sporty (cobalt hoodie, sport leggings, chunky sneakers, crossbody); and Streetwear (rust blazer, cobalt hoodie, indigo jeans, chunky sneakers, crossbody).
+- PASS: changing optional Style recomputes the suggestion when suitable choices exist. Under Business Casual, the live local preview changed from cream knit + indigo jeans (No preference), to emerald slip dress (Feminine), cream knit + black trousers (Masculine), and cobalt hoodie + sport leggings (Androgynous). These are suggestion weights only; the visible wardrobe catalog remains unchanged.
+- PASS: the preview explicitly labels fictional catalog output as a demo. Once at least one real user-added item exists, the preview uses only real available pieces from that account and reports missing categories instead of filling gaps with unowned samples.
+- PASS: selector changes after generating a result create a new unsaved suggestion. They do not rewrite an existing saved Lookbook record.
 
 ## Reference fidelity and remaining gaps
 
@@ -57,6 +62,13 @@ The browser QA session can render and display implementation captures, but the c
 - The 42 original starter records remain unchanged and still use simpler vector art where no exact approved raster exists. Catalog depth is therefore improved but not yet at the longer-term multi-example target for every garment family, color, pattern, and accessory.
 - Demo cards are labeled, require explicit confirmation before copying one record into the current browser closet, and never overwrite user items or import the full catalog. Images remain bundled application assets, not user photos.
 
+## Static image delivery
+
+- All 16 generated catalog PNG originals remain intact as transparent fallbacks.
+- Deterministic local `cwebp` lossless encoding with exact transparent RGB preservation produced paired WebP files. The WebP set is 13,390,662 bytes versus 22,842,488 bytes for PNG, saving 9,451,826 bytes (41.4%) when supported.
+- Decoding each WebP and PNG to RGBA produced identical SHA-256 pixel hashes for all 16 pairs; there is no semantic edit, recolor, crop, resize, or alpha change.
+- `<picture>` prefers local WebP while retaining local PNG fallback. Lazy loading, asynchronous decoding, `object-fit: contain`, and existing tile padding remain in place. CSP is unchanged because both formats load from the same origin.
+
 ## Cloud boundary note
 
 The redesigned client now constructs an explicit allowlisted cloud projection. Regression coverage asserts that common photo/image/base64 fields are absent from that client payload. This is a client-side privacy boundary, not server-side JSON schema validation. Database-side enforcement of the accepted document shape remains separate work and must be reviewed and applied by the user before it can be claimed.
@@ -64,6 +76,12 @@ The redesigned client now constructs an explicit allowlisted cloud projection. R
 ## Console
 
 No app-origin exception was observed. Two identical asynchronous-listener errors were emitted by the browser extension layer, with no application stack or functional impact in the local page.
+
+## Root-cause correction
+
+- The initial redesign mapped rich assets only in catalog cards; the right-side board retained the older flat-art path and omitted layers and jewelry. The board now renders every supported slot through the shared image/photo renderer.
+- Occasion and Style previously updated copy and metadata without replacing the preview's selected item IDs. The preview now uses deterministic, occasion-aware ranking, and generated results request a fresh unsaved suggestion on selector change.
+- Business and Business Casual had shared the same legacy `work` value. A separate presentation-level occasion theme now supplies distinct ranking biases while preserving the existing six-step answer and learning model.
 
 ## Automated checks
 

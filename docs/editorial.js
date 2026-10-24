@@ -84,7 +84,25 @@
   garmentArt = function editorialGarmentArt(item) {
     const asset = !item.photoId && catalogAssets[item.id];
     if (!asset) return baseGarmentArt(item);
-    return `<span class="photo-frame demo-photo" data-demo-piece="true"><img class="garment-photo" src="${asset[0]}" alt="${esc(asset[1])}" loading="lazy" decoding="async"></span>`;
+    const webp = asset[0].replace(/\.png$/, '.webp');
+    return `<span class="photo-frame demo-photo" data-demo-piece="true"><picture><source srcset="${webp}" type="image/webp"><img class="garment-photo" src="${asset[0]}" alt="${esc(asset[1])}" loading="lazy" decoding="async"></picture></span>`;
+  };
+
+  board = function editorialBoard(items) {
+    const top = items.find(item => ['top', 'dress'].includes(item.type));
+    const bottom = items.find(item => ['skirt', 'pants'].includes(item.type));
+    const shoes = items.find(item => SHOES.includes(item.type));
+    const bag = items.find(item => item.type === 'bag');
+    const layer = items.find(item => item.type === 'layer');
+    const jewelry = items.find(item => item.type === 'jewelry');
+    return `<div class="moodboard">
+      ${layer ? `<div class="garment layer">${garmentArt(layer)}</div>` : ''}
+      ${top ? `<div class="garment top ${top.type === 'dress' ? 'dress' : ''}">${garmentArt(top)}</div>` : ''}
+      ${bottom && top?.type !== 'dress' ? `<div class="garment bottom">${garmentArt(bottom)}</div>` : ''}
+      ${shoes ? `<div class="garment shoes">${garmentArt(shoes)}</div>` : ''}
+      ${bag ? `<div class="garment bag">${garmentArt(bag)}</div>` : ''}
+      ${jewelry ? `<div class="garment jewelry">${garmentArt(jewelry)}</div>` : ''}
+    </div>`;
   };
 
   const baseFeatures = features;
@@ -97,6 +115,95 @@
       });
     }
     return featureSet;
+  };
+
+  const basePieceScore = pieceScore;
+  pieceScore = function editorialPieceScore(item, answerSet) {
+    let score = basePieceScore(item, answerSet);
+    const theme = answerSet.occasionTheme || 'business-casual';
+    const themeBias = {
+      business: (item.style === 'classic' ? 4 : 0) + (item.type === 'layer' ? 2 : 0) + (['black', 'navy', 'gray', 'white'].includes(item.color) ? 1 : 0),
+      'business-casual': (['classic', 'relaxed'].includes(item.style) ? 2.5 : 0) + (['flats', 'boots', 'layer'].includes(item.type) ? 1 : 0),
+      everyday: (item.style === 'relaxed' ? 4 : 0) + (['sneakers', 'flats'].includes(item.type) ? 2 : 0),
+      evening: (['romantic', 'bold'].includes(item.style) ? 4 : 0) + (['dress', 'heels'].includes(item.type) ? 3 : 0),
+      sporty: (item.style === 'relaxed' ? 3 : 0) + (['pants', 'top', 'sneakers'].includes(item.type) ? 3 : 0),
+      streetwear: (['bold', 'relaxed'].includes(item.style) ? 3 : 0) + (['pants', 'layer', 'sneakers'].includes(item.type) ? 2 : 0)
+    }[theme] || 0;
+    const preference = answerSet.stylePreference || 'none';
+    const preferenceBias = {
+      feminine: item.style === 'romantic' ? 5 : item.style === 'bold' ? 1 : 0,
+      masculine: item.style === 'classic' ? 5 : item.style === 'relaxed' ? 1 : 0,
+      androgynous: ['relaxed', 'bold'].includes(item.style) ? 4 : 0
+    }[preference] || 0;
+    return score + themeBias + preferenceBias;
+  };
+
+  const previewPlans = {
+    business: {shapes:['pants', 'dress', 'skirt'], shoes:['boots', 'flats', 'heels'], layer:true, jewelry:true},
+    'business-casual': {shapes:['skirt', 'pants', 'dress'], shoes:['flats', 'boots', 'sneakers'], layer:true},
+    everyday: {shapes:['pants', 'skirt', 'dress'], shoes:['sneakers', 'flats', 'boots']},
+    evening: {shapes:['dress', 'skirt', 'pants'], shoes:['heels', 'boots', 'flats'], layer:true, jewelry:true},
+    sporty: {shapes:['pants'], shoes:['sneakers'], jewelry:false},
+    streetwear: {shapes:['pants', 'skirt', 'dress'], shoes:['sneakers', 'boots'], layer:true}
+  };
+
+  function rankedPick(pool, predicate, answerSet, bonus = () => 0) {
+    return pool.filter(predicate).sort((a, b) => pieceScore(b, answerSet) + bonus(b) - pieceScore(a, answerSet) - bonus(a) || a.id.localeCompare(b.id))[0];
+  }
+
+  function previewContext(answerSet = answers) {
+    const actual = data.items.filter(item => item.available && !item.id.startsWith('starter-') && !item.id.startsWith('demo-'));
+    const exactStarterIds = new Set(['starter-6', 'starter-15', 'starter-20', 'starter-33']);
+    const pool = actual.length
+      ? actual
+      : [...demoCatalog, ...data.items.filter(item => item.available && exactStarterIds.has(item.id))];
+    const mode = actual.length ? 'closet' : 'demo';
+    const theme = answerSet.occasionTheme || 'business-casual';
+    const plan = previewPlans[theme] || previewPlans['business-casual'];
+    const shapeOrder = answerSet.shape && answerSet.shape !== 'surprise' ? [answerSet.shape] : plan.shapes;
+    const items = [];
+    const shape = rankedPick(
+      pool,
+      item => shapeOrder.includes(item.type),
+      answerSet,
+      item => (shapeOrder.length - shapeOrder.indexOf(item.type)) * 0.2
+    );
+    const shapeType = shape?.type;
+    if (shape) items.push(shape);
+    if (shapeType && shapeType !== 'dress') {
+      const top = rankedPick(pool, item => item.type === 'top', answerSet);
+      if (top) items.push(top);
+    }
+    const shoeTypes = answerSet.shoes && answerSet.shoes !== 'any' ? [answerSet.shoes] : plan.shoes;
+    const shoes = rankedPick(pool, item => shoeTypes.includes(item.type), answerSet);
+    if (shoes) items.push(shoes);
+    if (plan.layer) {
+      const layer = rankedPick(pool, item => item.type === 'layer', answerSet);
+      if (layer) items.push(layer);
+    }
+    const bag = rankedPick(pool, item => item.type === 'bag', answerSet);
+    if (bag) items.push(bag);
+    if (plan.jewelry) {
+      const jewelry = rankedPick(pool, item => item.type === 'jewelry', answerSet);
+      if (jewelry) items.push(jewelry);
+    }
+    const missing = [];
+    if (!shape) missing.push('a dress, skirt, or pair of pants');
+    if (shapeType && shapeType !== 'dress' && !items.some(item => item.type === 'top')) missing.push('a top');
+    if (!shoes) missing.push('suitable shoes');
+    return {
+      items,
+      mode,
+      message: mode === 'demo'
+        ? 'Demo preview · fictional catalog pieces, not your closet.'
+        : missing.length
+          ? `Limited closet preview · add or enable ${missing.join(' and ')} for a complete suggestion.`
+          : 'Your closet preview · only available pieces from this account.'
+    };
+  }
+
+  previewItems = function editorialPreviewItems() {
+    return previewContext().items;
   };
 
   function filterMatch(item) {
@@ -197,13 +304,15 @@
   }
 
   function stagePreview() {
+    const preview = previewContext();
     return `<section class="editorial-stage" aria-labelledby="look-heading">
       <div class="editorial-stage-top">
         <div><h1 id="look-heading">A look for today</h1><p>${esc(outfitSubtitle())}</p></div>
         <button class="editorial-secondary" data-action="restart">Start over</button>
       </div>
       ${selectorMarkup()}
-      <div class="editorial-canvas" aria-label="Current outfit preview">${board(previewItems())}</div>
+      <div class="editorial-canvas" aria-label="Current outfit preview">${board(preview.items)}</div>
+      <p class="editorial-preview-note ${preview.mode === 'demo' ? 'is-demo' : ''}">${esc(preview.message)}</p>
       ${decisionCard()}
     </section>`;
   }
@@ -284,12 +393,30 @@
     if (event.target.name === 'editorial-occasion') {
       answers.occasionTheme = event.target.value;
       answers.occasion = occasionToPath[event.target.value] || 'everyday';
-      if (result) result.answers = {...result.answers, occasionTheme: answers.occasionTheme, occasion: answers.occasion};
+      if (result) {
+        const saved = data.looks.some(look => look.id === result.id);
+        const nextAnswers = {...result.answers, occasionTheme: answers.occasionTheme, occasion: answers.occasion, stylePreference: answers.stylePreference || result.answers.stylePreference || 'none'};
+        const nextResult = generate(nextAnswers);
+        if (nextResult) {
+          result = nextResult;
+          answers = {...nextAnswers};
+          toast(saved ? 'New suggestion started. Your saved look is unchanged.' : 'Suggestion updated for the new occasion.');
+        }
+      }
       render();
     }
     if (event.target.name === 'editorial-style') {
       answers.stylePreference = event.target.value;
-      if (result) result.answers = {...result.answers, stylePreference: answers.stylePreference};
+      if (result) {
+        const saved = data.looks.some(look => look.id === result.id);
+        const nextAnswers = {...result.answers, stylePreference: answers.stylePreference, occasionTheme: answers.occasionTheme || result.answers.occasionTheme || 'business-casual'};
+        const nextResult = generate(nextAnswers);
+        if (nextResult) {
+          result = nextResult;
+          answers = {...nextAnswers};
+          toast(saved ? 'New suggestion started. Your saved look is unchanged.' : 'Suggestion updated for the new style preference.');
+        }
+      }
       render();
     }
   });
