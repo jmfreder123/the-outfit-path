@@ -37,7 +37,19 @@
     ['bottoms', 'Bottoms'],
     ['dress', 'Dresses'],
     ['layer', 'Layers'],
-    ['shoes', 'Shoes']
+    ['shoes', 'Shoes'],
+    ['accessories', 'Accessories']
+  ];
+  const featuredStarterIds = [
+    'starter-8',
+    'starter-1',
+    'starter-13',
+    'starter-33',
+    'starter-5',
+    'starter-27',
+    'starter-18',
+    'starter-35',
+    'starter-15'
   ];
   let editorialFilter = 'all';
 
@@ -64,7 +76,17 @@
     if (editorialFilter === 'all') return true;
     if (editorialFilter === 'bottoms') return ['skirt', 'pants'].includes(item.type);
     if (editorialFilter === 'shoes') return SHOES.includes(item.type);
+    if (editorialFilter === 'accessories') return ['bag', 'jewelry'].includes(item.type);
     return item.type === editorialFilter;
+  }
+
+  function displayOrder(items) {
+    const realItems = items.filter(item => !item.id.startsWith('starter-'));
+    const starterItems = items.filter(item => item.id.startsWith('starter-'));
+    if (editorialFilter !== 'all') return [...realItems, ...starterItems];
+    const priority = new Map(featuredStarterIds.map((id, index) => [id, index]));
+    starterItems.sort((a, b) => (priority.get(a.id) ?? featuredStarterIds.length) - (priority.get(b.id) ?? featuredStarterIds.length));
+    return [...realItems, ...starterItems];
   }
 
   function currentOccasion(answerSet = answers) {
@@ -98,7 +120,7 @@
   }
 
   function wardrobePane() {
-    const available = data.items.filter(item => item.available && filterMatch(item));
+    const available = displayOrder(data.items.filter(item => item.available && filterMatch(item)));
     const shown = available.slice(0, 9);
     return `<section class="editorial-wardrobe" aria-labelledby="wardrobe-heading">
       <div class="editorial-wardrobe-heading">

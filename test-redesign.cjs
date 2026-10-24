@@ -42,10 +42,14 @@ assert(!run('renderBuilder().includes("Men")'));
 assert(!run('renderBuilder().includes("Women")'));
 const visiblePieceIds = html => [...html.matchAll(/data-edit="([^"]+)"/g)].map(match => match[1]);
 const baselinePieceIds = visiblePieceIds(run('renderBuilder()'));
+assert.deepEqual(baselinePieceIds, ['starter-8', 'starter-1', 'starter-13', 'starter-33', 'starter-5', 'starter-27', 'starter-18', 'starter-35', 'starter-15']);
 for (const preference of ['none', 'feminine', 'masculine', 'androgynous']) {
   run(`answers.stylePreference='${preference}'`);
   assert.deepEqual(visiblePieceIds(run('renderBuilder()')), baselinePieceIds, `${preference} must not hide wardrobe pieces`);
 }
+run("data.items.push({id:'user-fixture',name:'User fixture',type:'top',color:'blue',hex:'#6e8494',style:'relaxed',season:'all',available:true,notes:''})");
+assert.equal(visiblePieceIds(run('renderBuilder()'))[0], 'user-fixture', 'user-owned pieces should appear before demo samples');
+run("data.items.pop()");
 run("answers.stylePreference='androgynous'");
 assert(run("Object.keys(features([data.items[0]],answers)).some(key=>key.startsWith('context:aesthetic:androgynous:'))"));
 

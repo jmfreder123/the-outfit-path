@@ -7,7 +7,7 @@
 - Local implementation: `http://127.0.0.1:4173/`
 - Branch: `codex/genderless-redesign`
 
-The browser QA session can render and display implementation captures, but the connected browser API did not expose a local filesystem path for the screenshot bytes. A formal source-vs-implementation artifact comparison is therefore blocked on materializing a browser-rendered screenshot file. The observations below come from direct desktop and mobile browser inspection and are not a substitute for the missing evidence artifact.
+The browser QA session can render and display implementation captures, but the connected browser API exposes screenshot bytes for inline display only and provides no supported filesystem export path. Its screenshot guidance confirms JPEG output but does not add a save-to-file method. A formal source-vs-implementation artifact comparison is therefore blocked on materializing a browser-rendered screenshot file. The observations below come from direct desktop and mobile browser inspection and are not a substitute for the missing evidence artifact.
 
 ## Implemented screen inventory
 
@@ -23,6 +23,9 @@ The browser QA session can render and display implementation captures, but the c
 
 - PASS: charcoal/cream split, dark editorial header, serif hierarchy, wardrobe grid, garment composition, selectors, and six-step card match the selected direction.
 - PASS: supplied fictional garment imagery is restricted to starter display mappings. User items and photos are untouched.
+- PASS: real user-added pieces are ordered before demo samples in the compact wardrobe pane.
+- PASS: the default demo preview is a curated cross-category set rather than the first nine seed rows; it now covers a dress, skirt, knit, blazer, jeans, sneakers, boots, bag, and shirt.
+- PASS: Accessories is directly filterable alongside Tops, Bottoms, Dresses, Layers, and Shoes.
 - PASS: Occasion and optional Style are visibly separate.
 - PASS: Feminine, Masculine, Androgynous, and No preference remain open to everyone and never filter the wardrobe.
 - PASS: left wardrobe heading no longer wraps prematurely at the reference viewport after reducing it to a 40–46 px range.
