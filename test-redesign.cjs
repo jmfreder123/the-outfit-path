@@ -40,9 +40,9 @@ assert(run("renderBuilder().includes('name=\"editorial-style\"')"));
 assert(run('renderBuilder().includes("Every style is open to everyone.")'));
 assert(!run('renderBuilder().includes("Men")'));
 assert(!run('renderBuilder().includes("Women")'));
-const visiblePieceIds = html => [...html.matchAll(/data-edit="([^"]+)"/g)].map(match => match[1]);
+const visiblePieceIds = html => [...html.matchAll(/data-(?:edit|demo-add)="([^"]+)"/g)].map(match => match[1]);
 const baselinePieceIds = visiblePieceIds(run('renderBuilder()'));
-assert.deepEqual(baselinePieceIds, ['starter-8', 'starter-1', 'starter-13', 'starter-33', 'starter-5', 'starter-27', 'starter-18', 'starter-35', 'starter-15']);
+assert.deepEqual(baselinePieceIds, ['demo-emerald-slip-dress', 'demo-patterned-midi-skirt', 'demo-rust-blazer', 'demo-cobalt-hoodie', 'demo-indigo-jeans', 'demo-black-sport-leggings', 'demo-off-white-chunky-sneakers', 'starter-20', 'demo-black-crossbody']);
 for (const preference of ['none', 'feminine', 'masculine', 'androgynous']) {
   run(`answers.stylePreference='${preference}'`);
   assert.deepEqual(visiblePieceIds(run('renderBuilder()')), baselinePieceIds, `${preference} must not hide wardrobe pieces`);
@@ -53,8 +53,14 @@ run("data.items.pop()");
 run("answers.stylePreference='androgynous'");
 assert(run("Object.keys(features([data.items[0]],answers)).some(key=>key.startsWith('context:aesthetic:androgynous:'))"));
 
-for (const asset of ['blazer.png', 'watch.png', 'tote.png', 'cream-knit.png', 'charcoal-trousers.png', 'white-shirt.png', 'loafers.png']) {
+const editorialSource = fs.readFileSync('docs/editorial.js', 'utf8');
+for (const mismatchedStarter of ['starter-13', 'starter-25', 'starter-38']) {
+  assert(!new RegExp(`['"]${mismatchedStarter}['"]\\s*:`).test(editorialSource), mismatchedStarter + ' must not claim a mismatched raster asset');
+}
+assert(run('renderBuilder().includes("Add sample to closet")'));
+
+for (const asset of ['blazer.png', 'watch.png', 'tote.png', 'cream-knit.png', 'charcoal-trousers.png', 'white-shirt.png', 'loafers.png', 'emerald-slip-dress.png', 'patterned-midi-skirt.png', 'rust-blazer.png', 'cobalt-hoodie.png', 'indigo-jeans.png', 'sport-leggings.png', 'chunky-sneakers.png', 'ankle-boots.png', 'crossbody-bag.png']) {
   assert(fs.statSync('docs/assets/design3/' + asset).size > 1000, asset + ' should be a non-empty local asset');
 }
 
-console.log('PASS: editorial shell, separate genderless occasion/style selectors, unchanged starter count, learned aesthetic context, and local asset manifest.');
+console.log('PASS: editorial shell, varied opt-in demo catalog, truthful raster mappings, unchanged starter count, style-neutral visibility, and local asset manifest.');

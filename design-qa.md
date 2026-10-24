@@ -24,8 +24,9 @@ The browser QA session can render and display implementation captures, but the c
 - PASS: charcoal/cream split, dark editorial header, serif hierarchy, wardrobe grid, garment composition, selectors, and six-step card match the selected direction.
 - PASS: supplied fictional garment imagery is restricted to starter display mappings. User items and photos are untouched.
 - PASS: real user-added pieces are ordered before demo samples in the compact wardrobe pane.
-- PASS: the default demo preview is a curated cross-category set rather than the first nine seed rows; it now covers a dress, skirt, knit, blazer, jeans, sneakers, boots, bag, and shirt.
+- PASS: the default demo preview is a curated cross-category set rather than the first nine seed rows; it now covers a colorful slip dress, patterned skirt, rust blazer, cobalt hoodie, indigo jeans, sport leggings, chunky sneakers, black ankle boots, and a black crossbody bag.
 - PASS: Accessories is directly filterable alongside Tops, Bottoms, Dresses, Layers, and Shoes.
+- PASS: fictional demos remain outside `data.items` until the person chooses **Add sample to closet** and confirms the modal. Cancelling the inspected modal left the closet count at 42.
 - PASS: Occasion and optional Style are visibly separate.
 - PASS: Feminine, Masculine, Androgynous, and No preference remain open to everyone and never filter the wardrobe.
 - PASS: left wardrobe heading no longer wraps prematurely at the reference viewport after reducing it to a 40–46 px range.
@@ -48,13 +49,13 @@ The browser QA session can render and display implementation captures, but the c
 - PASS: Lookbook remains reachable and retains its existing private saved-look behavior.
 - PASS: switching among No preference, Feminine, Masculine, and Androgynous leaves the same wardrobe-piece IDs visible. Style adds an optional learning context feature; it does not create a gender taxonomy or a garment eligibility filter.
 
-## Reference-fidelity gaps
+## Reference fidelity and remaining gaps
 
-- The high-fidelity supplied PNG pack contains seven neutral capsule assets: blazer, charcoal trousers, cream knit, loafers, tote, watch, and white shirt.
-- Six of those assets are mapped to matching starter pieces. The watch remains unused because the starter catalog has no matching watch record; it is not silently substituted for jewelry.
-- The 42-piece starter catalog does include skirts, dresses, colorful tops, layers, shoes, bags, and jewelry, but pieces without a matching supplied PNG still render the existing simpler vector illustration.
-- Consequently, the responsive shell, information hierarchy, selectors, and broad category/color range are implemented, while the approved reference’s richer colorful photographic/cutout treatment is only partial. More licensed or generated transparent assets are required for close fidelity across dresses, skirts, hoodies/streetwear, colorful layers, sneakers, and accessories.
-- Sample pieces remain labeled and stored separately from user-added photography; none are copied into a user’s real closet or uploaded as photo data.
+- The app now includes nine inspected transparent assets matching the approved varied reference: emerald slip dress, floral midi skirt, rust blazer, cobalt hoodie, indigo jeans, black sport leggings, off-white chunky sneakers, black ankle boots, and black crossbody bag.
+- The earlier neutral pack was audited for label fidelity. Only charcoal trousers, white button-down, black blazer, and the new black ankle boots map directly to matching starter records. The plain merino knit, brown loafers, black leather tote, and leather-strap watch are separate fictional demo records rather than false mappings to cable-knit, black-loafer, canvas-tote, or jewelry records.
+- The first nine cards now closely represent the approved broad visual direction. Additional demo cards remain available through category filters, and all real user-added items continue to sort ahead of demos.
+- The 42 original starter records remain unchanged and still use simpler vector art where no exact approved raster exists. Catalog depth is therefore improved but not yet at the longer-term multi-example target for every garment family, color, pattern, and accessory.
+- Demo cards are labeled, require explicit confirmation before copying one record into the current browser closet, and never overwrite user items or import the full catalog. Images remain bundled application assets, not user photos.
 
 ## Cloud boundary note
 

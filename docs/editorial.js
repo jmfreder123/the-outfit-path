@@ -1,14 +1,41 @@
 'use strict';
 
 (() => {
-  const starterAssets = {
+  COLORS.rust ||= '#a64b2d';
+  COLORS.indigo ||= '#324a70';
+
+  const catalogAssets = {
     'starter-6': ['assets/design3/charcoal-trousers.png', 'Black tailored trousers'],
-    'starter-13': ['assets/design3/cream-knit.png', 'Cream cable-knit sweater'],
     'starter-15': ['assets/design3/white-shirt.png', 'White button-down'],
-    'starter-25': ['assets/design3/loafers.png', 'Black leather loafers'],
     'starter-33': ['assets/design3/blazer.png', 'Black tailored blazer'],
-    'starter-38': ['assets/design3/tote.png', 'Canvas everyday tote']
+    'starter-20': ['assets/design3/ankle-boots.png', 'Black ankle boots'],
+    'demo-emerald-slip-dress': ['assets/design3/emerald-slip-dress.png', 'Emerald satin slip dress'],
+    'demo-patterned-midi-skirt': ['assets/design3/patterned-midi-skirt.png', 'Floral patterned midi skirt'],
+    'demo-rust-blazer': ['assets/design3/rust-blazer.png', 'Rust tailored blazer'],
+    'demo-cobalt-hoodie': ['assets/design3/cobalt-hoodie.png', 'Cobalt oversized hoodie'],
+    'demo-indigo-jeans': ['assets/design3/indigo-jeans.png', 'Indigo straight-leg jeans'],
+    'demo-black-sport-leggings': ['assets/design3/sport-leggings.png', 'Black sport leggings'],
+    'demo-off-white-chunky-sneakers': ['assets/design3/chunky-sneakers.png', 'Off-white chunky sneakers'],
+    'demo-black-crossbody': ['assets/design3/crossbody-bag.png', 'Black leather crossbody bag'],
+    'demo-cream-merino-knit': ['assets/design3/cream-knit.png', 'Cream merino crewneck'],
+    'demo-brown-leather-loafers': ['assets/design3/loafers.png', 'Brown leather loafers'],
+    'demo-black-leather-tote': ['assets/design3/tote.png', 'Black leather tote'],
+    'demo-black-leather-watch': ['assets/design3/watch.png', 'Black leather-strap watch']
   };
+  const demoCatalog = [
+    {id:'demo-emerald-slip-dress',name:'Emerald satin slip dress',type:'dress',color:'green',hex:'#075742',style:'romantic',season:'mild',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-patterned-midi-skirt',name:'Floral patterned midi skirt',type:'skirt',color:'cream',hex:'#e5d7b7',style:'bold',season:'mild',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-rust-blazer',name:'Rust tailored blazer',type:'layer',color:'rust',hex:'#a64b2d',style:'classic',season:'mild',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-cobalt-hoodie',name:'Cobalt oversized hoodie',type:'top',color:'blue',hex:'#1456d8',style:'relaxed',season:'cool',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-indigo-jeans',name:'Indigo straight-leg jeans',type:'pants',color:'indigo',hex:'#324a70',style:'relaxed',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-black-sport-leggings',name:'Black sport leggings',type:'pants',color:'black',hex:'#202120',style:'relaxed',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-off-white-chunky-sneakers',name:'Off-white chunky sneakers',type:'sneakers',color:'cream',hex:'#ede6d6',style:'bold',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-black-crossbody',name:'Black leather crossbody bag',type:'bag',color:'black',hex:'#242423',style:'classic',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-cream-merino-knit',name:'Cream merino crewneck',type:'top',color:'cream',hex:'#eee7d7',style:'classic',season:'cool',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-brown-leather-loafers',name:'Brown leather loafers',type:'flats',color:'brown',hex:'#4f2e20',style:'classic',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-black-leather-tote',name:'Black leather tote',type:'bag',color:'black',hex:'#222221',style:'classic',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true},
+    {id:'demo-black-leather-watch',name:'Black leather-strap watch',type:'jewelry',color:'black',hex:'#262625',style:'classic',season:'all',available:true,notes:'Fictional catalog sample.',catalogSample:true}
+  ];
   const occasionOptions = [
     ['business', 'Business'],
     ['business-casual', 'Business Casual'],
@@ -40,22 +67,22 @@
     ['shoes', 'Shoes'],
     ['accessories', 'Accessories']
   ];
-  const featuredStarterIds = [
-    'starter-8',
-    'starter-1',
-    'starter-13',
-    'starter-33',
-    'starter-5',
-    'starter-27',
-    'starter-18',
-    'starter-35',
-    'starter-15'
+  const featuredCatalogIds = [
+    'demo-emerald-slip-dress',
+    'demo-patterned-midi-skirt',
+    'demo-rust-blazer',
+    'demo-cobalt-hoodie',
+    'demo-indigo-jeans',
+    'demo-black-sport-leggings',
+    'demo-off-white-chunky-sneakers',
+    'starter-20',
+    'demo-black-crossbody'
   ];
   let editorialFilter = 'all';
 
   const baseGarmentArt = garmentArt;
   garmentArt = function editorialGarmentArt(item) {
-    const asset = !item.photoId && starterAssets[item.id];
+    const asset = !item.photoId && catalogAssets[item.id];
     if (!asset) return baseGarmentArt(item);
     return `<span class="photo-frame demo-photo" data-demo-piece="true"><img class="garment-photo" src="${asset[0]}" alt="${esc(asset[1])}" loading="lazy" decoding="async"></span>`;
   };
@@ -81,12 +108,13 @@
   }
 
   function displayOrder(items) {
-    const realItems = items.filter(item => !item.id.startsWith('starter-'));
+    const realItems = items.filter(item => !item.id.startsWith('starter-') && !item.catalogSample);
+    const catalogItems = items.filter(item => item.catalogSample);
     const starterItems = items.filter(item => item.id.startsWith('starter-'));
-    if (editorialFilter !== 'all') return [...realItems, ...starterItems];
-    const priority = new Map(featuredStarterIds.map((id, index) => [id, index]));
-    starterItems.sort((a, b) => (priority.get(a.id) ?? featuredStarterIds.length) - (priority.get(b.id) ?? featuredStarterIds.length));
-    return [...realItems, ...starterItems];
+    const priority = new Map(featuredCatalogIds.map((id, index) => [id, index]));
+    const samples = [...catalogItems, ...starterItems];
+    if (editorialFilter === 'all') samples.sort((a, b) => (priority.get(a.id) ?? featuredCatalogIds.length) - (priority.get(b.id) ?? featuredCatalogIds.length));
+    return [...realItems, ...samples];
   }
 
   function currentOccasion(answerSet = answers) {
@@ -112,7 +140,12 @@
   }
 
   function wardrobeCard(item) {
-    const sample = item.id.startsWith('starter-');
+    const sample = item.id.startsWith('starter-') || item.id.startsWith('demo-');
+    if (item.catalogSample) return `<article class="editorial-piece editorial-demo">
+      <span class="editorial-piece-art">${garmentArt(item)}</span>
+      <span class="editorial-piece-copy"><strong>${esc(item.name)}</strong><small>Demo · ${esc(TYPES[item.type] || item.type)}</small></span>
+      <button class="editorial-demo-add" data-demo-add="${esc(item.id)}">Add sample to closet</button>
+    </article>`;
     return `<button class="editorial-piece ${item.available ? '' : 'is-unavailable'}" data-edit="${esc(item.id)}" aria-label="Edit ${esc(item.name)}">
       <span class="editorial-piece-art">${garmentArt(item)}</span>
       <span class="editorial-piece-copy"><strong>${esc(item.name)}</strong><small>${sample ? 'Sample · ' : ''}${esc(TYPES[item.type] || item.type)}</small></span>
@@ -120,7 +153,10 @@
   }
 
   function wardrobePane() {
-    const available = displayOrder(data.items.filter(item => item.available && filterMatch(item)));
+    const storedIds = new Set(data.items.map(item => item.id));
+    const stored = data.items.filter(item => item.available && filterMatch(item));
+    const demos = demoCatalog.filter(item => filterMatch(item) && !storedIds.has(item.id));
+    const available = displayOrder([...stored, ...demos]);
     const shown = available.slice(0, 9);
     return `<section class="editorial-wardrobe" aria-labelledby="wardrobe-heading">
       <div class="editorial-wardrobe-heading">
@@ -131,9 +167,9 @@
         ${wardrobeFilters.map(([value, label]) => `<button data-editorial-filter="${value}" class="${editorialFilter === value ? 'active' : ''}" aria-pressed="${editorialFilter === value}">${label}</button>`).join('')}
       </div>
       <div class="editorial-piece-grid">${shown.map(wardrobeCard).join('')}</div>
-      ${available.length > shown.length ? `<button class="editorial-view-all" data-view="closet">View all ${available.length} pieces</button>` : ''}
+      ${available.length > shown.length ? `<button class="editorial-view-all" data-view="closet">Open My Closet · ${data.items.length} pieces</button>` : ''}
       ${shown.length ? '' : '<p class="editorial-empty">No available pieces in this category. Try another filter or open My Closet.</p>'}
-      <p class="editorial-sample-note">Items marked Sample are starter examples. They are never silently copied into another account or uploaded as photos.</p>
+      <p class="editorial-sample-note">Demo and Sample pieces are fictional catalog examples. A Demo joins only this browser closet after you choose Add; nothing is silently imported or uploaded as a photo.</p>
     </section>`;
   }
 
@@ -212,6 +248,32 @@
   };
 
   document.addEventListener('click', event => {
+    const addDemo = event.target.closest('[data-demo-add]');
+    if (addDemo) {
+      const sample = demoCatalog.find(item => item.id === addDemo.dataset.demoAdd);
+      if (!sample) return;
+      openModal('Add this fictional sample?', `<div class="editorial-demo-review">${garmentArt(sample)}</div><p><strong>${esc(sample.name)}</strong></p><p class="muted">This copies one fictional catalog sample into the current browser closet. It does not replace a real item, copy a photo, or add the rest of the demo catalog.</p><div class="panel-actions"><button class="btn" data-action="close">Cancel</button><button class="btn primary" data-confirm-demo-add="${esc(sample.id)}">Add this sample</button></div>`);
+      return;
+    }
+    const confirmDemo = event.target.closest('[data-confirm-demo-add]');
+    if (confirmDemo) {
+      const sample = demoCatalog.find(item => item.id === confirmDemo.dataset.confirmDemoAdd);
+      if (!sample || data.items.some(item => item.id === sample.id)) {
+        $('#modal').close();
+        toast('That sample is already in this closet.');
+        return;
+      }
+      const {catalogSample, ...copy} = sample;
+      data.items.push({...copy});
+      if (!save()) {
+        data.items.pop();
+        return;
+      }
+      $('#modal').close();
+      render();
+      toast('Fictional sample added to this browser closet.');
+      return;
+    }
     const button = event.target.closest('[data-editorial-filter]');
     if (!button) return;
     editorialFilter = button.dataset.editorialFilter;

@@ -143,7 +143,8 @@ main:has(.editorial-shell) {
 }
 
 .editorial-piece:hover,
-.editorial-piece:focus-visible {
+.editorial-piece:focus-visible,
+.editorial-piece:focus-within {
   border-color: #68635d;
 }
 
@@ -177,6 +178,39 @@ main:has(.editorial-shell) {
 .editorial-piece-copy strong,
 .editorial-piece-copy small {
   display: block;
+}
+
+.editorial-demo-add {
+  width: calc(100% - 24px);
+  min-height: 38px;
+  margin: 0 12px 12px;
+  padding: 7px 10px;
+  color: var(--editorial-ink);
+  background: transparent;
+  border: 1px solid #8d877f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.editorial-demo-add:hover,
+.editorial-demo-add:focus-visible {
+  color: var(--editorial-cream);
+  background: var(--editorial-ink);
+}
+
+.editorial-demo-review {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 20px;
+  background: var(--editorial-tile);
+}
+
+.editorial-demo-review .photo-frame,
+.editorial-demo-review .garment-photo {
+  width: min(100%, 340px);
+  height: 260px;
+  object-fit: contain;
 }
 
 .editorial-piece-copy strong {
