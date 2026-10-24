@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; style-src 'self'; img-src 'self' data:; form-action 'self'; upgrade-insecure-requests">
+  <meta name="description" content="Draft privacy notice for The Outfit Path.">
+  <title>Privacy notice — The Outfit Path</title>
+  <link rel="stylesheet" href="privacy.css">
+</head>
+<body>
+<main>
+  <a class="back" href="index.html">← Back to The Outfit Path</a>
+  <p class="muted">Draft prepared October 24, 2026</p>
+  <h1>Privacy notice</h1>
+
+  <section class="draft" aria-label="Draft warning">
+    <strong>Not ready for public launch.</strong>
+    <p>This notice describes the current preview build, but the owner must complete the jurisdiction, legal bases, and retention decisions before publication. The current app does not provide cloud-copy deletion or account deletion.</p>
+  </section>
+
+  <h2>Who is responsible</h2>
+  <p>The operator and data controller is <strong>John M. Fredericks</strong>. Privacy questions and requests should go to <strong><a href="mailto:jfredericks4@gmail.com">jfredericks4@gmail.com</a></strong>.</p>
+  <p><strong>Mailing address for privacy correspondence only:</strong><br>John Fredericks<br>1235 Pennsylvania Ave SE<br>Unit #1357<br>Washington, DC 20003</p>
+  <p class="muted">This mailing address is not represented as a physical business location or registered-agent address. It was supplied by the operator; this draft does not assert that any address-provider subscription or contract has been independently verified.</p>
+
+  <h2>Adults only</h2>
+  <p>The Outfit Path is intended only for people age 18 and over. Before any wardrobe, account, or cloud scripts load, the app asks the visitor to confirm that they are at least 18. It does not ask for a birth date or identity document. The confirmation is a self-attestation, not verified proof of age, and is stored only as a value in that browser tab's session storage. It is not included in the cloud backup.</p>
+  <p>If a visitor selects “I am under 18,” the wardrobe, account, and cloud scripts do not load and no age response is saved. The hosting provider still receives ordinary request data needed to deliver the initial page. A visitor can bypass a browser-only gate, so this control cannot guarantee age or eliminate legal risk.</p>
+
+  <h2>Invite-only beta</h2>
+  <p>There is no public account signup in the app. John M. Fredericks chooses whom to invite and uses Supabase's administrative invitation flow. Prospective testers should be invited only after they state that they are age 18 or older. That operator check and the in-app gate are self-attestations, not verified age assurance. Supabase's live “Allow new users to sign up” setting was disabled by John M. Fredericks and verified off after reload on October 24, 2026; anonymous sign-ins were off and email confirmation was on.</p>
+  <p>After the 18+ gate, signed-out visitors must sign in before wardrobe access. A valid invitation or recovery callback requires password setup before continuing. Password-reset requests return a generic response that does not confirm whether an account exists. An account that optionally enrolls an authenticator app must also complete its second factor. Signed-out, expired, or second-factor-pending sessions see an account gate; the separate guest copy remains stored locally but hidden.</p>
+  <p>Supabase receives the invited email address and sends the invitation email. The invitation link should not be shared. The app never contains an administrator or service-role credential. Invite administration, public-signup configuration, and user management remain in the protected Supabase dashboard.</p>
+
+  <h2>What the app handles</h2>
+  <table>
+    <thead><tr><th>Data</th><th>Where it goes</th><th>When</th></tr></thead>
+    <tbody>
+      <tr><td>Clothing names, categories, colors, style, season, availability, and notes</td><td>Browser localStorage, separated into a guest copy and a copy for each signed-in account on that browser. If the user manually uploads, a JSON copy goes to that account's Supabase database row.</td><td>When pieces are saved; cloud transfer only after “Upload this account copy.”</td></tr>
+      <tr><td>Saved looks and outfit ratings</td><td>Account-scoped browser localStorage; optional manual Supabase JSON backup.</td><td>When a look or rating is saved; cloud transfer only after manual upload.</td></tr>
+      <tr><td>Wardrobe photos</td><td>Browser IndexedDB, separated into guest and signed-in-account namespaces, plus user-created JSON backup files. Photos and photo identifiers are removed from Supabase uploads.</td><td>When the user selects or photographs an item.</td></tr>
+      <tr><td>Invited email address, password submission, and authentication session</td><td>The operator sends the invited email address to Supabase from its Dashboard. Passwords are submitted directly to Supabase Auth over HTTPS; the app does not store them. The Supabase browser client persists the session in browser storage.</td><td>When the operator sends an invitation, and when the invited adult finishes password setup or signs in.</td></tr>
+      <tr><td>Password-recovery email and optional authenticator-app factor</td><td>Supabase Auth processes the recovery email, temporary recovery session, TOTP enrollment QR secret, and six-digit verification codes. The app does not write passwords, TOTP secrets, or verification codes to wardrobe storage or logs.</td><td>Only when the user explicitly requests recovery or chooses to enroll/verify/remove an authenticator factor.</td></tr>
+      <tr><td>18+ confirmation</td><td>A yes-only flag in this browser tab's sessionStorage; not sent to Supabase or included in exports.</td><td>Only after the visitor selects “I am 18 or older.” No value is saved on decline.</td></tr>
+      <tr><td>Export/import backup files</td><td>Exported to or selected from the user's device. Full exports can include photos as base64 data.</td><td>Only when the user chooses Export or Import.</td></tr>
+      <tr><td>Ordinary request data such as IP address, user agent, timestamps, and requested URLs</td><td>May be received by the hosting provider and service providers involved in a request.</td><td>When the site, Supabase, or optional recognition resources are accessed.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How data is used</h2>
+  <ul>
+    <li>Provide the closet, outfit suggestions, saved looks, local preference learning, backup, and authentication features.</li>
+    <li>Protect accounts and isolate each signed-in user's cloud document through database access policies.</li>
+    <li>Diagnose failures and maintain the service where provider logs are available.</li>
+  </ul>
+  <p>The preview contains no app analytics, advertising trackers, or behavioral advertising. It does not use a hosted AI inference API. The optional recognition model runs in the browser.</p>
+
+  <h2>Service providers and external requests</h2>
+  <ul>
+    <li><strong>Supabase:</strong> invitation email, authentication, and the optional wardrobe JSON backup.</li>
+    <li><strong>GitHub Pages or the eventual hosting provider:</strong> site delivery and ordinary request logs.</li>
+    <li><strong>jsDelivr:</strong> pinned browser libraries and optional recognition runtime files.</li>
+    <li><strong>Hugging Face and its delivery infrastructure:</strong> the optional recognition model, pinned to a specific revision.</li>
+  </ul>
+  <p>The user's image pixels are processed in the browser and are not intentionally uploaded to those recognition-resource providers. Download requests still disclose ordinary network metadata. Provider retention and international-transfer terms have not been verified for this draft; review their current policies before launch.</p>
+
+  <h2>Storage, retention, and deletion</h2>
+  <ul>
+    <li>Local wardrobe data remains until the user resets the app, clears site data, or the browser evicts it.</li>
+    <li>Signing out removes this app's session from the current browser but does not delete the Supabase account or cloud row.</li>
+    <li>A manual cloud upload overwrites that user's previous cloud document. The current preview has no self-service cloud-copy or account deletion control.</li>
+    <li>Signing into a different account switches the visible local wardrobe to that account's separate browser namespace. A preserved guest wardrobe is not assigned or uploaded automatically; copying it into an account requires a separate confirmation and leaves the guest copy intact.</li>
+    <li>Exported backup files remain wherever the user stores or shares them and are not encrypted by the app.</li>
+    <li><strong>[CLOUD ACCOUNT/DOCUMENT RETENTION PERIOD — REQUIRED]</strong></li>
+    <li><strong>[PROVIDER LOG RETENTION DECISIONS — REQUIRED]</strong></li>
+  </ul>
+
+  <h2>Security</h2>
+  <p>The app uses HTTPS service endpoints, a publishable browser key, row-level database policies, input validation, output escaping, a restrictive content policy, and pinned dependencies. The privileged service key and database password are not used in frontend code. No system can be guaranteed secure; the security review still requires live two-account isolation testing and an approved deletion process before launch.</p>
+
+  <h2>User choices and requests</h2>
+  <p>Users can export a full local backup, reset local data, pause local preference learning, and sign out of the current browser. Rights such as access, correction, deletion, restriction, objection, or portability depend on the user's jurisdiction. Requests can be sent to <strong><a href="mailto:jfredericks4@gmail.com">jfredericks4@gmail.com</a></strong>. This contact route still needs an approved identity-verification and request-handling process before launch.</p>
+
+  <h2>Legal basis, age eligibility, and international transfers</h2>
+  <p><strong>[APPLICABLE JURISDICTIONS AND LEGAL BASES — REQUIRED]</strong></p>
+  <p>The service is for adults age 18 and over and is not directed to children. Under-18 visitors must not use the wardrobe, account, or cloud features or submit personal information. The current self-attestation gate is a product restriction, not a verified age-assurance service and not a guarantee that a minor cannot gain access. The operator must obtain jurisdiction-specific legal advice before launch.</p>
+  <p><strong>[INTERNATIONAL TRANSFER MECHANISM, IF REQUIRED — REQUIRED]</strong></p>
+
+  <h2>Changes</h2>
+  <p>Material changes should be reflected here with a new date and, where required, notice or consent. This draft has no effective date because it is not approved for publication.</p>
+</main>
+</body>
+</html>

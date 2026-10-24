@@ -1,4 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+assert.match(fs.readFileSync('docs/scanner-worker.js','utf8'), /a wristwatch or watch/);
 const elements=new Map();const el=key=>elements.get(key)||elements.set(key,{innerHTML:'',textContent:'',classList:{add(){},remove(){},toggle(){}},addEventListener(){},showModal(){this.open=true},close(){this.open=false}}).get(key);
 const sandbox={console,crypto:require('node:crypto').webcrypto,setTimeout,clearTimeout,localStorage:{getItem(){return null},setItem(){}},document:{querySelector:el,querySelectorAll(){return []},addEventListener(){}},window:{}};
 vm.createContext(sandbox);vm.runInContext(fs.readFileSync('docs/app.js','utf8'),sandbox);vm.runInContext(fs.readFileSync('docs/scanner.js','utf8'),sandbox);const run=code=>vm.runInContext(code,sandbox);

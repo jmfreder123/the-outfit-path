@@ -14,9 +14,9 @@ A playful, browser-local wardrobe tool: six outfit decisions, a customizable 42-
 
 A regularized logistic regression model runs in JavaScript in the visitor's browser. Outfit ratings update item, color, style, occasion/style, and weather/category features. The latest 200 ratings train the model; learned scores influence candidate ranking alongside style heuristics. Required silhouette, footwear, and availability constraints take precedence. Cold starts use heuristics and variety. Ratings are preference signals, not evidence of predictive accuracy.
 
-There is no cloud account, paid AI API, server, analytics, or automatic sync. Closet data, ratings, and saved looks live in browser localStorage. Photo thumbnails live separately in IndexedDB. Google Fonts supplies optional typography; system font fallbacks are included. The hosting provider receives ordinary web requests.
+There is no paid AI API, app analytics, or automatic sync. The preview is adults-only and its cloud beta is invite-only; there is no public self-signup UI. After the 18+ self-attestation, signed-out visitors see a blocking sign-in screen rather than a wardrobe. Valid invite/recovery callbacks require password setup before access; password recovery gives a generic response that does not disclose whether an account exists. Authenticator-app TOTP is optional: accounts that enroll it remain locked until the session reaches AAL2. Closet data, ratings, saved looks, and IndexedDB photo thumbnails are separated into guest and authenticated-user namespaces on each browser. A legacy wardrobe is preserved as hidden guest data rather than silently assigned to a signed-in account. Optional manual Supabase backup can store clothing details, saved looks, and ratings after an invited adult signs in, but never photos; upload is blocked if the visible local namespace does not match the authenticated user ID. System fonts are used. The hosting provider and explicitly listed service providers receive ordinary web requests; see `docs/privacy.html`, `INVITE-ONLY-BETA.md`, `MFA-2FA-HANDOFF.md`, and `SECURITY-PRIVACY-REVIEW.md`.
 
-**Moving domains or devices:** export from Preferences & data on the old site, open the new site, and import the backup. Browser storage does not automatically follow a site to GitHub Pages. Do not commit personal backup files to the repository.
+**Moving domains or devices:** export from Preferences & data on the old site, open the new site, and import the backup. Browser storage does not automatically follow a site to a new origin. Do not commit personal backup files to the repository.
 
 ## Scan clothes with a phone
 
@@ -28,15 +28,28 @@ The model suggests clothing categories from a fixed list. Color is sampled from 
 
 Photos are resized to JPEG thumbnails before saving, which strips source-file metadata. Photos remain visible in the closet and outfits. Export/import includes referenced photos once per backup. Photos are retained for saved-look snapshots; a full wardrobe reset clears the photo store. Use a current browser and the hosted HTTPS website for scanning; a downloaded `file://` copy cannot reliably start a module worker.
 
-## GitHub Pages hosting
+## Hosting transition
 
-This repository contains `docs/index.html`, `docs/style.css`, `docs/app.js`, and `docs/.nojekyll`. Upload its contents to your repository. In repository **Settings → Pages**, choose **Deploy from a branch**, select your branch (usually `main`), choose **/docs**, and save. No package installation or build command is needed. Keep `scanner.js` and `scanner-worker.js` beside the other website files.
+The current GitHub Pages URL still serves an older public build. A direct check on 2026-10-24 returned HTTP 200, and its HTML loaded `app.js` and `scanner.js` directly without the adults-only gate or the invite-only/Supabase client. Treat that URL as an unsecured legacy build; do not use it for beta invitations or personal data.
 
-[GitHub's official publishing-source instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+The intended replacement is a free Cloudflare Pages static deployment at `theoutfitpath.com`. The complete staged setup and safety gates are in `CLOUDFLARE-DEPLOYMENT.md`. No Cloudflare Pages project, GitHub grant, DNS record, nameserver change, push, or deployment has been made from this branch.
 
-The tool is suitable for public static hosting. Every visitor gets a separate wardrobe in their own browser. Source: https://github.com/jmfreder123/the-outfit-path
+Source: https://github.com/jmfreder123/the-outfit-path
 
-Website: https://jmfreder123.github.io/the-outfit-path/
+## Optional Supabase cloud backup
+
+The app can keep one private, manual cloud copy of clothing details, saved looks, and ratings per signed-in user. Browser storage remains the working copy. Photos remain only on the device and are excluded from cloud upload.
+
+Setup deliberately requires an account owner to complete the external steps:
+
+1. In the Supabase SQL Editor, review and run `supabase/migrations/20261024180000_create_wardrobe_documents.sql`.
+2. In Project Settings → API Keys, copy the project URL and a **publishable** key (or legacy `anon` key) into `docs/supabase-config.js`.
+3. Never use a `service_role`/secret key or database password in frontend code. The client refuses known secret-key formats.
+4. Ensure Email authentication is enabled and add only the exact verified beta/production origin to the project's allowed redirect URLs.
+5. Test with two separate users before relying on it: each user must only be able to read and update their own row.
+6. After deploying the MFA UI and completing isolation tests, review and run `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql`. This restrictive policy makes AAL2 mandatory only for users who opted into a verified MFA factor.
+
+The migration enables and forces row-level security, denies anonymous table access, grants authenticated users only select/insert/update, and scopes every policy to `auth.uid() = user_id`. It does not create a Storage bucket or upload photos.
 
 ## Development
 
@@ -44,7 +57,7 @@ The website is served from `docs/`.
 
 Run `python3 -m http.server 4173 --directory docs`, then visit `http://localhost:4173`.
 
-Run `node test.cjs` for automated checks. No third-party test dependencies are needed.
+Run the `test*.cjs` files with Node.js or Deno for automated checks. `test-mfa.cjs` covers the mocked AAL1 lock/AAL2 unlock and the prepared restrictive-policy handoff. No third-party test dependencies are needed.
 
 ## Verification
 

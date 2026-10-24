@@ -10,7 +10,7 @@ const categories = [
  ['a coat or jacket','layer','Jacket'],['a blazer','layer','Blazer'],['a cardigan','layer','Cardigan'],
  ['boots','boots','Boots'],['high heel shoes','heels','Heels'],['ballet flats or loafers','flats','Flats'],
  ['sneakers or trainers','sneakers','Sneakers'],['sandals','sandals','Sandals'],['a handbag or tote bag','bag','Bag'],
- ['jewelry, earrings, or a necklace','jewelry','Jewelry'],['an object that is not clothing or an accessory','unknown','Unrecognized item']
+ ['a wristwatch or watch','jewelry','Watch'],['jewelry, earrings, or a necklace','jewelry','Jewelry'],['an object that is not clothing or an accessory','unknown','Unrecognized item']
 ];
 self.onmessage=async ({data})=>{
  const {id,pixels,width,height}=data;
