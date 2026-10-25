@@ -603,6 +603,7 @@
     answers: defaults(),
     dirty: false,
     sourceId: null,
+    ideaId: null,
     readOnly: false,
     variant: 0,
   });
@@ -631,6 +632,63 @@
   const samples =
     () => [...demoCatalog, ...seed().filter((i) => catalogAssets[i.id])];
   const pool = () => source === "sample" ? samples() : owned();
+  // Sample ideas: looks built from fictional samples. They live under their
+  // own per-account key, never in data.looks, never in cloud backup, and
+  // hold only sample item IDs (no owned clothes, photos or notes).
+  const IDEAS_PREFIX = "outfit-path-ideas-v1:";
+  const ideasKey = () =>
+    IDEAS_PREFIX + encodeURIComponent(normalizeScope(activeDataScope));
+  const sampleIds = () => new Set(samples().map((i) => i.id));
+  const validIdea = (x, ids) =>
+    x && typeof x.id === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(x.id) &&
+    typeof x.name === "string" && x.name.length <= 80 &&
+    (x.plannedDate === null || dateFromKey(x.plannedDate)) &&
+    Array.isArray(x.itemIds) && x.itemIds.length <= 12 &&
+    x.itemIds.every((id) => typeof id === "string" && ids.has(id));
+  // Returns { ok, ideas, all }. ok is false when stored ideas exist but
+  // cannot be read; callers must not overwrite them in that case. "all" is
+  // every stored entry, including ones this version does not recognise;
+  // writes edit "all" so unrecognised entries are kept as they are.
+  function loadIdeas() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(ideasKey());
+    } catch {
+      return { ok: false, ideas: [] };
+    }
+    if (raw === null || raw === undefined) return { ok: true, ideas: [], all: [] };
+    try {
+      const parsed = JSON.parse(raw), ids = sampleIds();
+      if (!Array.isArray(parsed)) return { ok: false, ideas: [] };
+      return {
+        ok: true,
+        all: parsed,
+        ideas: parsed.filter((x) => validIdea(x, ids)).map((x) => ({
+          id: x.id,
+          name: x.name,
+          plannedDate: x.plannedDate,
+          itemIds: x.itemIds.slice(),
+          answers: {
+            occasionTheme: String(x.answers?.occasionTheme || "everyday"),
+            stylePreference: String(x.answers?.stylePreference || "none"),
+          },
+          created: String(x.created || ""),
+        })),
+      };
+    } catch {
+      return { ok: false, ideas: [] };
+    }
+  }
+  function storeIdeas(list) {
+    try {
+      localStorage.setItem(ideasKey(), JSON.stringify(list));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const ideaItems = (idea) =>
+    idea.itemIds.map((id) => samples().find((i) => i.id === id)).filter(Boolean);
   const draftKey = () => `${source}:${planningDate}`;
   function remember() {
     drafts.set(draftKey(), clone(draft));
@@ -812,6 +870,9 @@
   function dateControls() {
     const today = localDateKey(), selected = dateFromKey(planningDate);
     const saved = new Set(data.looks.map((l) => l.plannedDate).filter(Boolean));
+    const ideaDays = new Set(
+      loadIdeas().ideas.map((x) => x.plannedDate).filter(Boolean),
+    );
     const days = weekDays(planningDate).map((key) => {
       const d = dateFromKey(key), isSel = key === planningDate;
       const full = d.toLocaleDateString(undefined, {
@@ -821,7 +882,7 @@
       });
       const label = `${full}${key === today ? ", today" : ""}${
         saved.has(key) ? ", has a saved look" : ""
-      }`;
+      }${ideaDays.has(key) ? ", has a sample idea" : ""}`;
       return `<button class="week-day${isSel ? " selected" : ""}${
         key === today ? " today" : ""
       }" data-goto-date="${key}" aria-label="${esc(label)}"${
@@ -829,7 +890,7 @@
       }><span>${
         esc(d.toLocaleDateString(undefined, { weekday: "short" }))
       }</span><b>${d.getDate()}</b><i class="${
-        saved.has(key) ? "saved" : ""
+        saved.has(key) ? "saved" : ideaDays.has(key) ? "idea" : ""
       }" aria-hidden="true"></i></button>`;
     }).join("");
     const month = selected.toLocaleDateString(undefined, {
@@ -926,7 +987,9 @@
     const inLook = (id) => draft.items.some((p) => p.id === id);
     return `<section class="editorial-wardrobe plan-wardrobe" aria-labelledby="wardrobe-heading"><div class="editorial-wardrobe-heading plan-wardrobe-head"><div><h2 id="wardrobe-heading">Wardrobe</h2><p>${
       draft.readOnly
-        ? "Saved looks are read only. Choose Edit this look to make changes."
+        ? draft.ideaId
+          ? "Sample ideas are read only. Choose Edit this idea to make changes."
+          : "Saved looks are read only. Choose Edit this look to make changes."
         : "Tap a piece to add it. Tap it on the board to pin, swap or remove."
     }</p></div><button class="plan-close" data-close-wardrobe aria-label="Close wardrobe panel">×</button></div><div class="wardrobe-source-tabs plan-source" role="group" aria-label="Wardrobe source">
       <button data-wardrobe-source="owned" aria-pressed="${
@@ -987,7 +1050,7 @@
         : '<button class="editorial-secondary plan-add" data-action="additem">Add an item</button>'
     }<p class="editorial-sample-note plan-note">${
       source === "sample"
-        ? "Samples are fictional and stay separate from your closet. Sample looks aren't saved to your lookbook."
+        ? "Samples are fictional and stay separate from your closet. Looks made from them save as sample ideas, apart from your own saved looks."
         : starterNote()
     }</p></section>`;
   }
@@ -1008,7 +1071,11 @@
     const pinCount = draft.pins.filter((id) =>
       draft.items.some((i) => i.id === id)
     ).length;
-    const statusMain = draft.readOnly
+    const statusMain = draft.readOnly && draft.ideaId
+      ? `<b>Sample idea</b> · ${
+        draft.sourceDate ? esc(dateLabel(draft.sourceDate)) : "date not recorded"
+      } · read only`
+      : draft.readOnly
       ? `<b>Saved look</b> · ${
         draft.sourceDate ? esc(dateLabel(draft.sourceDate)) : "date not recorded"
       } · read only`
@@ -1020,7 +1087,7 @@
     const statusNote = draft.readOnly
       ? ""
       : source === "sample"
-      ? "Sample looks aren't saved to your lookbook."
+      ? "Sample looks save as ideas, kept apart from your own saved looks."
       : `${
         partial && draft.items.length ? "Partial look; you can save it as it is. " : ""
       }Drafts last for this session only. Save before closing.`;
@@ -1058,12 +1125,20 @@
       draft.readOnly ? "" : " · Suggestions use local rules"
     }${statusNote ? `<br><span>${statusNote}</span>` : ""}</p><div class="simple-actions">${
       draft.readOnly
-        ? "<button data-new-draft>New look for this date</button><button class=\"editorial-primary\" data-edit-saved>Edit this look</button>"
+        ? `<button data-new-draft>New look for this date</button><button class="editorial-primary" data-edit-saved>${
+          draft.ideaId ? "Edit this idea" : "Edit this look"
+        }</button>`
         : `<button data-suggest ${!pool().length ? "disabled" : ""}>${
           draft.items.length ? "Suggest the rest" : "Suggest a look"
-        }</button><button class="editorial-primary" data-save-draft ${
-          !draft.items.length || saving || source === "sample" ? "disabled" : ""
-        }>${draft.sourceId ? "Update saved look" : "Save look"}</button>`
+        }</button>${
+          source === "sample"
+            ? `<button class="editorial-primary" data-save-idea ${
+              !draft.items.length || saving ? "disabled" : ""
+            }>${draft.ideaId ? "Update idea" : "Save as idea"}</button>`
+            : `<button class="editorial-primary" data-save-draft ${
+              !draft.items.length || saving ? "disabled" : ""
+            }>${draft.sourceId ? "Update saved look" : "Save look"}</button>`
+        }`
     }</div></div><p class="mannequin-caption plan-caption">Laid out flat at approximate scale. Not a fit or try-on preview.</p>${
       draft.items.length
         ? `<details class="simple-selected plan-pieces"><summary><h2 tabindex="-1" id="selected-heading">Pieces in this look (${draft.items.length})${
@@ -1112,7 +1187,69 @@
     data.looks.filter((l) => l.plannedDate === planningDate).map(card).join(
       "",
     ) + `<h2>Earlier undated looks</h2>` +
-    data.looks.filter((l) => !l.plannedDate).map(card).join("");
+    data.looks.filter((l) => !l.plannedDate).map(card).join("") +
+    ideasSection();
+  function ideasSection() {
+    const { ok, ideas } = loadIdeas();
+    if (!ok) {
+      return `<section class="ideas-section"><h2>Sample ideas</h2><p>Sample ideas in this browser could not be read. Nothing was changed.</p></section>`;
+    }
+    const today = ideas.filter((x) => x.plannedDate === planningDate);
+    return `<section class="ideas-section" aria-labelledby="ideas-heading"><h2 id="ideas-heading">Sample ideas</h2><p class="ideas-note">Looks built from fictional samples. Kept apart from your saved looks and not added to your closet. Stored in this browser only.</p>${
+      today.length
+        ? today.map((x) =>
+          `<article class="look-card idea-card">${board(ideaItems(x))}<h3>${
+            esc(x.name)
+          }</h3><p>${esc(dateLabel(x.plannedDate))} · Sample idea</p><button data-open-idea="${
+            esc(x.id)
+          }">Open idea</button><button data-delete-idea="${
+            esc(x.id)
+          }" aria-label="Delete sample idea ${esc(x.name)}">Delete</button></article>`
+        ).join("")
+        : "<p>No sample ideas for this date.</p>"
+    }</section>`;
+  }
+  function openIdea(id, discard = false) {
+    const { ok, ideas } = loadIdeas();
+    const idea = ok && ideas.find((x) => x.id === id);
+    if (!idea) return;
+    const date = idea.plannedDate || planningDate;
+    const current = date === planningDate && source === "sample"
+      ? draft
+      : drafts.get(`sample:${date}`);
+    if (current?.dirty && !discard) {
+      openModal(
+        "Keep your unsaved draft?",
+        `<p>A sample draft already exists for this date. Keep it, or discard that session draft to open the idea.</p><button data-action="close">Keep draft</button><button data-discard-open-idea="${
+          esc(id)
+        }">Discard draft and open</button>`,
+      );
+      return;
+    }
+    remember();
+    planningDate = date;
+    source = "sample";
+    sourceChosen = true;
+    const items = ideaItems(idea);
+    draft = {
+      ...fresh(),
+      items: clone(items),
+      pins: items.map((i) => i.id),
+      answers: { ...defaults(), ...idea.answers },
+      ideaId: idea.id,
+      sourceDate: idea.plannedDate,
+      readOnly: true,
+    };
+    result = null;
+    pendingReplacement = null;
+    notice = items.length < idea.itemIds.length
+      ? "Some sample pieces in this idea are no longer available."
+      : "";
+    boardMenu = null;
+    view = "builder";
+    remember();
+    repaint();
+  }
   function openSaved(id, discard = false) {
     const look = data.looks.find((l) => l.id === id);
     if (!look) return;
@@ -1190,6 +1327,11 @@
       "swapPiece",
       "closeMenu",
       "gotoDate",
+      "saveIdea",
+      "openIdea",
+      "discardOpenIdea",
+      "deleteIdea",
+      "confirmDeleteIdea",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
@@ -1202,6 +1344,56 @@
     event.stopImmediatePropagation();
     if (target.disabled) return;
     let after = "";
+    if (d.openIdea) {
+      openIdea(d.openIdea);
+      return;
+    }
+    if (d.discardOpenIdea) {
+      $("#modal").close();
+      openIdea(d.discardOpenIdea, true);
+      return;
+    }
+    if (d.deleteIdea) {
+      const idea = loadIdeas().ideas.find((x) => x.id === d.deleteIdea);
+      if (!idea) return;
+      openModal(
+        "Delete this sample idea?",
+        `<p>${esc(idea.name)} will be removed from this browser. Your saved looks and closet are not affected.</p><button data-action="close">Keep it</button><button data-confirm-delete-idea="${
+          esc(idea.id)
+        }">Delete idea</button>`,
+      );
+      return;
+    }
+    if (d.confirmDeleteIdea) {
+      const { ok, all } = loadIdeas();
+      $("#modal").close();
+      if (!ok || !storeIdeas(all.filter((x) => x?.id !== d.confirmDeleteIdea))) {
+        toast("The idea could not be deleted. Nothing was changed.");
+        return;
+      }
+      if (draft.ideaId === d.confirmDeleteIdea) draft.ideaId = null;
+      render();
+      return;
+    }
+    if (d.saveIdea !== undefined) {
+      if (draft.readOnly || !draft.items.length || source !== "sample") return;
+      saveTicket = {
+        draft,
+        scope: activeDataScope,
+        date: planningDate,
+        source,
+      };
+      const existing = loadIdeas().ideas.find((x) => x.id === draft.ideaId);
+      openModal(
+        draft.ideaId ? "Update sample idea" : "Save sample idea",
+        `<form id="simple-idea-form"><label>Idea name<input name="name" maxlength="80" required value="${
+          esc(existing?.name || "Sample idea")
+        }"></label><p>${esc(dateLabel(planningDate))} · ${draft.items.length} sample pieces</p><p class="muted">Uses fictional sample clothes. Saved in this browser, apart from your own looks, and never added to your closet.</p><button type="submit" class="btn primary">${
+          draft.ideaId ? "Update idea" : "Save idea"
+        }</button><p role="status" id="simple-save-error"></p></form>`,
+      );
+      return;
+    }
     if (d.openlook) {
       openSaved(d.openlook);
       return;
@@ -1303,7 +1495,9 @@
       boardMenu = null;
       draft.readOnly = false;
       draft.pins = draft.items.map((i) => i.id);
-      notice = "Editing a copy. Only Update saved look commits your changes.";
+      notice = draft.ideaId
+        ? "Editing this idea. Only Update idea saves your changes."
+        : "Editing a copy. Only Update saved look commits your changes.";
     }
     if (d.action === "newlook" || d.action === "restart") {
       view = "builder";
@@ -1367,6 +1561,68 @@
     }
     repaint(`[name="${name}"]`);
   });
+  document.addEventListener("submit", (event) => {
+    if (event.target.id !== "simple-idea-form") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (saving || draft.readOnly || source !== "sample") return;
+    if (
+      !saveTicket || saveTicket.draft !== draft ||
+      saveTicket.scope !== activeDataScope ||
+      saveTicket.date !== planningDate || saveTicket.source !== source
+    ) {
+      $("#modal").close();
+      notice = "The draft or account changed. Review this idea and save again.";
+      repaint();
+      return;
+    }
+    const name = new FormData(event.target).get("name")?.trim().slice(0, 80);
+    if (!name) return;
+    const ids = sampleIds();
+    const itemIds = draft.items.map((i) => i.id).filter((id) => ids.has(id));
+    if (itemIds.length !== draft.items.length) {
+      $("#simple-save-error").textContent =
+        "Only sample pieces can be saved as an idea. Nothing was saved.";
+      return;
+    }
+    const { ok, ideas, all } = loadIdeas();
+    if (!ok) {
+      $("#simple-save-error").textContent =
+        "Sample ideas in this browser could not be read, so nothing was saved.";
+      return;
+    }
+    saving = true;
+    const existing = ideas.find((x) => x.id === draft.ideaId);
+    const idea = {
+      id: existing?.id || uid().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64),
+      name,
+      plannedDate: existing ? existing.plannedDate : planningDate,
+      itemIds,
+      answers: {
+        occasionTheme: draft.answers.occasionTheme,
+        stylePreference: draft.answers.stylePreference,
+      },
+      created: existing?.created || new Date().toISOString(),
+    };
+    const next = existing
+      ? all.map((x) => x?.id === existing.id ? idea : x)
+      : [...all, idea];
+    if (!storeIdeas(next)) {
+      saving = false;
+      $("#simple-save-error").textContent =
+        "Could not save. Your draft is intact; try again.";
+      return;
+    }
+    saving = false;
+    draft.ideaId = idea.id;
+    draft.sourceDate = idea.plannedDate;
+    draft.dirty = false;
+    draft.readOnly = true;
+    remember();
+    $("#modal").close();
+    notice = "Saved to Sample ideas.";
+    repaint("[data-edit-saved]");
+  }, true);
   document.addEventListener("submit", (event) => {
     if (event.target.id !== "simple-look-form") return;
     event.preventDefault();
@@ -1465,6 +1721,17 @@
       };
     }
   }
+  // "Reset everything" in Settings (app.js) clears this account's wardrobe,
+  // looks, ratings and photos; this listener runs after it and also removes
+  // this account's sample ideas. Other accounts' ideas are untouched.
+  document.addEventListener("click", (event) => {
+    const b = event.target.closest?.("button");
+    if (b?.dataset?.action !== "confirmresetall" || b.disabled) return;
+    try {
+      localStorage.removeItem(ideasKey());
+    } catch { /* Clearing site data in the browser removes it. */ }
+    resetSession();
+  });
   document.addEventListener("error", (event) => {
     const img = event.target;
     if (img?.tagName !== "IMG" || !img.closest(".photo-frame")) return;

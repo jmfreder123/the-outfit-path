@@ -148,7 +148,10 @@ assert(
 );
 assert.equal(run("data.items.length"), 42);
 assert.equal(writes, 0);
-assert(run('renderBuilder().includes("data-save-draft disabled")'));
+assert(!run('renderBuilder().includes("data-save-draft")'), "a sample look can never be saved as an owned look");
+assert(run('renderBuilder().includes("data-save-idea >Save as idea")'), "samples save as ideas instead");
+click({ saveDraft: "" });
+assert.equal(run("data.looks.length"), 0, "a stray Save look action in sample mode changes nothing");
 click({ wardrobeSource: "owned" });
 assert.equal(state().draft.items.length, 0);
 run(

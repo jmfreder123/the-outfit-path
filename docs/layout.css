@@ -863,3 +863,30 @@ header nav button:not(.active) {
     line-height: 1.35;
   }
 }
+
+/* Days with a sample idea: hollow ring (saved looks use a filled dot). */
+.week-strip .week-day i.idea {
+  box-shadow: inset 0 0 0 1px var(--dot);
+}
+
+/* Sample ideas on the Saved looks page */
+.ideas-section {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid #d8d2c6;
+}
+
+.ideas-section h2 {
+  margin: 0 0 4px;
+  font: 400 26px/1.2 var(--serif);
+}
+
+.ideas-note {
+  margin: 0 0 16px;
+  color: #77736b;
+  font-size: 13px;
+}
+
+.idea-card button + button {
+  margin-left: 8px;
+}
