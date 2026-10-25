@@ -316,6 +316,51 @@ for (
   )
 ) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
+// Saved looks page: selected day, then upcoming, earlier and undated looks;
+// deleting asks first and rolls back when storage fails.
+{
+  sandbox.window.qa.reset();
+  const today = sandbox.window.qa.date();
+  const shift = sandbox.window.qa.shift;
+  run(`data.looks=[
+    {id:'look-today',name:'Today look',plannedDate:'${today}',items:[seed()[15]],answers:{},created:'2026-01-01'},
+    {id:'look-soon',name:'Soon look',plannedDate:'${shift(today, 3)}',items:[seed()[6]],answers:{},created:'2026-01-02'},
+    {id:'look-past',name:'Past look',plannedDate:'${shift(today, -3)}',items:[seed()[20]],answers:{},created:'2026-01-03'},
+    {id:'look-undated',name:'Old look',items:[seed()[33]],answers:{},created:'2025-01-01'}]`);
+  let html = run("renderLooks()");
+  assert(html.includes("<h1>Saved looks</h1>") && !html.includes("LOOKBOOK"));
+  const at = (t) => html.indexOf(t);
+  assert(at("saved-day-heading") < at(">Upcoming<") && at(">Upcoming<") < at(">Earlier<") && at(">Earlier<") < at(">No date recorded<"), "groups in order");
+  assert(at("Today look") < at(">Upcoming<"), "selected day first");
+  assert(at("Soon look") > at(">Upcoming<") && at("Soon look") < at(">Earlier<"));
+  assert(at("Past look") > at(">Earlier<") && at("Past look") < at(">No date recorded<"));
+  assert(at("Old look") > at(">No date recorded<"));
+  assert.equal((html.match(/data-openlook="look-today"/g) || []).length, 1, "no duplicate cards");
+  const w0 = writes;
+  click({ deleteLook: "look-undated" });
+  assert(el("#modal-body").innerHTML.includes("Delete look"));
+  assert.equal(run("data.looks.length"), 4, "nothing deleted before confirming");
+  click({ confirmDeleteLook: "look-undated" });
+  assert.equal(run("data.looks.length"), 3);
+  assert.equal(writes, w0 + 1);
+  fail = true;
+  click({ confirmDeleteLook: "look-soon" });
+  fail = false;
+  assert.equal(run("data.looks.length"), 3, "failed delete changes nothing");
+  assert(run("data.looks.some(l=>l.id==='look-soon')"));
+  sandbox.window.qa.open("look-today");
+  assert.equal(state().draft.sourceId, "look-today");
+  click({ confirmDeleteLook: "look-today" });
+  assert.equal(state().draft.sourceId, null, "open look becomes an unsaved draft");
+  assert.equal(state().draft.readOnly, false);
+  assert.equal(state().draft.dirty, true);
+  assert.equal(state().draft.items.length, 1, "its pieces stay on the board");
+  html = run("renderLooks()");
+  assert(html.includes("No saved looks for this day.") && html.includes('data-view="builder"'));
+  run("data.looks=[]");
+  sandbox.window.qa.reset();
+}
+
 // Starter records are explained, not counted as owned or hidden.
 {
   sandbox.window.qa.reset();
@@ -440,5 +485,5 @@ assert(!src.includes("addEventListener('drag"));
 }
 
 console.log(
-  "PASS: flat-lay order/scale/menu/swap; week strip; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
+  "PASS: flat-lay order/scale/menu/swap; week strip; saved looks groups and confirmed delete; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
 );

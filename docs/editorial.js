@@ -1350,41 +1350,89 @@
   renderBuilder = renderSimpleBuilder;
   renderResult = renderSimpleBuilder;
   previewItems = () => draft.items;
+  // Saved looks page: the selected day first, then every other date
+  // (upcoming, earlier, no date recorded). Sample ideas stay in their own
+  // section. Opening is read only; deleting asks first.
+  const cardHtml = ({ items, name, date, open, del, tag }) =>
+    `<article class="look-card saved-card">${board(items)}<div class="saved-card-body"><h3>${
+      esc(name)
+    }</h3><p>${date ? esc(dateLabel(date)) : "Date not recorded"} · ${items.length} piece${
+      items.length === 1 ? "" : "s"
+    }${tag ? ` · ${tag}` : ""}</p></div><div class="saved-card-actions">${open}${del}</div></article>`;
   const card = (look) =>
-    `<article class="look-card">${board(look.items)}<h3>${
-      esc(look.name || "Saved look")
-    }</h3><p>${
-      look.plannedDate ? esc(dateLabel(look.plannedDate)) : "Date not recorded"
-    }</p><button data-openlook="${esc(look.id)}">Open look</button></article>`;
-  renderLooks = () =>
-    heading(
-      "LOOKBOOK",
-      "Your saved looks.",
-      "Browse dates; opening a look is read only.",
-    ) + dateControls() +
-    data.looks.filter((l) => l.plannedDate === planningDate).map(card).join(
-      "",
-    ) + `<h2>Earlier undated looks</h2>` +
-    data.looks.filter((l) => !l.plannedDate).map(card).join("") +
-    ideasSection();
+    cardHtml({
+      items: look.items,
+      name: look.name || "Saved look",
+      date: look.plannedDate,
+      open: `<button class="saved-open" data-openlook="${esc(look.id)}">Open</button>`,
+      del: `<button class="saved-delete" data-delete-look="${
+        esc(look.id)
+      }" aria-label="Delete saved look ${esc(look.name || "Saved look")}">Delete</button>`,
+    });
+  const ideaCard = (x) =>
+    cardHtml({
+      items: ideaItems(x),
+      name: x.name,
+      date: x.plannedDate,
+      tag: "Sample idea",
+      open: `<button class="saved-open" data-open-idea="${esc(x.id)}">Open idea</button>`,
+      del: `<button class="saved-delete" data-delete-idea="${
+        esc(x.id)
+      }" aria-label="Delete sample idea ${esc(x.name)}">Delete</button>`,
+    });
+  const byDate = (dir) => (a, b) =>
+    dir * a.plannedDate.localeCompare(b.plannedDate) ||
+    String(a.created || "").localeCompare(String(b.created || ""));
+  const group = (title, list, make = card) =>
+    list.length
+      ? `<section class="saved-group" aria-label="${esc(title)}"><h2>${esc(title)}</h2><div class="saved-grid">${
+        list.map(make).join("")
+      }</div></section>`
+      : "";
+  renderLooks = () => {
+    const today = localDateKey();
+    const day = dateFromKey(planningDate).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    const forDay = data.looks.filter((l) => l.plannedDate === planningDate);
+    const others = data.looks.filter((l) =>
+      l.plannedDate && l.plannedDate !== planningDate
+    );
+    return `<div class="saved-page"><div class="saved-head"><h1>Saved looks</h1><p>Your saved looks by date. Opening a look is read only until you choose Edit.</p></div>${dateControls()}<section class="saved-group saved-day" aria-labelledby="saved-day-heading"><h2 id="saved-day-heading">${
+      esc(day)
+    }${planningDate === today ? " · today" : ""}</h2>${
+      forDay.length
+        ? `<div class="saved-grid">${forDay.map(card).join("")}</div>`
+        : `<p class="saved-empty">No saved looks for this day.</p><button class="saved-plan" data-view="builder">Plan this day</button>`
+    }</section>${
+      group("Upcoming", others.filter((l) => l.plannedDate > today).sort(byDate(1)))
+    }${
+      group("Earlier", others.filter((l) => l.plannedDate < today).sort(byDate(-1)))
+    }${
+      group("No date recorded", data.looks.filter((l) => !l.plannedDate))
+    }${ideasSection()}</div>`;
+  };
   function ideasSection() {
     const { ok, ideas } = loadIdeas();
     if (!ok) {
       return `<section class="ideas-section"><h2>Sample ideas</h2><p>Sample ideas in this browser could not be read. Nothing was changed.</p></section>`;
     }
-    const today = ideas.filter((x) => x.plannedDate === planningDate);
+    if (!ideas.length) return "";
+    const forDay = ideas.filter((x) => x.plannedDate === planningDate);
+    const others = ideas.filter((x) => x.plannedDate !== planningDate)
+      .sort((a, b) => String(a.plannedDate).localeCompare(String(b.plannedDate)));
     return `<section class="ideas-section" aria-labelledby="ideas-heading"><h2 id="ideas-heading">Sample ideas</h2><p class="ideas-note">Looks built from fictional samples. Kept apart from your saved looks and not added to your closet. Stored in this browser only.</p>${
-      today.length
-        ? today.map((x) =>
-          `<article class="look-card idea-card">${board(ideaItems(x))}<h3>${
-            esc(x.name)
-          }</h3><p>${esc(dateLabel(x.plannedDate))} · Sample idea</p><button data-open-idea="${
-            esc(x.id)
-          }">Open idea</button><button data-delete-idea="${
-            esc(x.id)
-          }" aria-label="Delete sample idea ${esc(x.name)}">Delete</button></article>`
-        ).join("")
+      forDay.length
+        ? `<div class="saved-grid">${forDay.map(ideaCard).join("")}</div>`
         : "<p>No sample ideas for this date.</p>"
+    }${
+      others.length
+        ? `<h3 class="saved-sub">Other days</h3><div class="saved-grid">${
+          others.map(ideaCard).join("")
+        }</div>`
+        : ""
     }</section>`;
   }
   function openIdea(id, discard = false) {
@@ -1510,6 +1558,8 @@
       "discardOpenIdea",
       "deleteIdea",
       "confirmDeleteIdea",
+      "deleteLook",
+      "confirmDeleteLook",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
@@ -1522,6 +1572,41 @@
     event.stopImmediatePropagation();
     if (target.disabled) return;
     let after = "";
+    if (d.deleteLook) {
+      const look = data.looks.find((l) => l.id === d.deleteLook);
+      if (!look) return;
+      openModal(
+        "Delete this saved look?",
+        `<p>${esc(look.name || "This look")} will be removed from your saved looks in this browser. The pieces stay in your closet. A cloud backup made earlier keeps its copy until you back up again.</p><button data-action="close">Keep it</button><button data-confirm-delete-look="${
+          esc(look.id)
+        }">Delete look</button>`,
+      );
+      return;
+    }
+    if (d.confirmDeleteLook) {
+      $("#modal").close();
+      const before = data.looks;
+      data.looks = data.looks.filter((l) => l.id !== d.confirmDeleteLook);
+      if (data.looks.length === before.length) return;
+      if (!save()) {
+        data.looks = before;
+        toast("The look could not be deleted. Nothing was changed.");
+        return;
+      }
+      // A draft that pointed at the deleted look becomes an unsaved draft.
+      for (const x of [draft, ...drafts.values()]) {
+        if (x.sourceId === d.confirmDeleteLook) {
+          x.sourceId = null;
+          x.sourceDate = undefined;
+          x.readOnly = false;
+          x.dirty = true;
+        }
+      }
+      remember();
+      toast("Look deleted.");
+      render();
+      return;
+    }
     if (d.openIdea) {
       openIdea(d.openIdea);
       return;
