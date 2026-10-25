@@ -4,6 +4,8 @@ Status: design and security backlog only. The current app does **not** yet provi
 
 Update (stage 6a): item scans are now screened on the device before review with NSFWJS 4.4.0 (MIT) and its MobileNetV2 model, self-hosted in `docs/vendor/nsfwjs` with recorded checksums. Rule: Porn + Hentai at or above 0.40 is rejected, 0.25 to 0.40 is treated as unclear and not saved, and screening that cannot run fails closed. The thresholds are a starting point, not validated on real outfit photos; NSFWJS reports about 90% accuracy for this model, which is the vendor's figure. `test-screening.cjs` uses synthetic score vectors only.
 
+Update (stage 6b): diary storage exists but has no screen yet. `docs/diary-store.js` keeps entries in a separate IndexedDB database (`outfit-path-diary`), keyed by the normalized account scope, with a fixed record shape (date, note up to 500 characters, up to 20 linked piece IDs, a JPEG photo, size, timestamps). A chosen photo is type- and size-checked, decoded upright, screened, then redrawn and saved as a new JPEG of at most 2048 px; nothing is stored until the caller saves. Checked in Chromium with a synthetic photo carrying EXIF orientation 6, camera make/model and GPS: the saved JPEG was upright and had no EXIF (APP1) segment, camera or GPS data; it keeps the browser's colour profile (APP2). Reset everything clears the current account's diary only. Diary data is not referenced by cloud sync, export or the item scanner. Not yet checked on Safari/iOS or with HEIC files.
+
 ## Two distinct photo flows
 
 | Flow | User intent | Saved image | Recognition behavior |

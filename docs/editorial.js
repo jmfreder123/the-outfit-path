@@ -2123,13 +2123,20 @@
   }
   // "Reset everything" in Settings (app.js) clears this account's wardrobe,
   // looks, ratings and photos; this listener runs after it and also removes
-  // this account's sample ideas. Other accounts' ideas are untouched.
+  // this account's sample ideas and diary entries. Other accounts' are kept.
   document.addEventListener("click", (event) => {
     const b = event.target.closest?.("button");
     if (b?.dataset?.action !== "confirmresetall" || b.disabled) return;
     try {
       localStorage.removeItem(ideasKey());
     } catch { /* Clearing site data in the browser removes it. */ }
+    const diary = globalThis.outfitPathDiary;
+    const cleared = diary
+      ? diary.clearScope(activeDataScope)
+      : Promise.reject(Error("Diary storage did not load."));
+    cleared.catch(() =>
+      toast("Diary entries could not be cleared. Clear this site’s browser data to remove them.")
+    );
     resetSession();
   });
   document.addEventListener("error", (event) => {

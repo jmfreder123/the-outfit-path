@@ -33,6 +33,7 @@
         { src: 'app.js' },
         { src: 'editorial.js' },
         { src: 'screening.js' },
+        { src: 'diary-store.js' },
         { src: 'scanner.js' },
         { src: 'supabase-config.js' },
         {
