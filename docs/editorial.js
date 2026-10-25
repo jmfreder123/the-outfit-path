@@ -497,17 +497,38 @@
     return `<div class="flatlay-frame flatlay-small">${flatLay(items)}</div>`;
   };
 
-  const baseFeatures = features;
-  features = function editorialFeatures(items, answerSet) {
-    const featureSet = baseFeatures(items, answerSet);
-    if (answerSet.stylePreference && answerSet.stylePreference !== "none") {
-      items.forEach((item) => {
-        const key =
-          `context:aesthetic:${answerSet.stylePreference}:${item.style}`;
-        featureSet[key] = (featureSet[key] || 0) + 1 / items.length;
-      });
+  // Style learning features. They describe things that carry over to new
+  // outfits: which styles and colours you pair, and the style you choose for
+  // an occasion, plus a light per-piece signal. Keys keep the prefixes the
+  // backup validator and cloud copy accept (bias, item:, type:, color:,
+  // style:, context:) and values stay within +/-2.
+  features = function learningFeatures(items, answerSet = {}) {
+    const f = { bias: 1 };
+    const n = Math.max(1, items.length);
+    const add = (k, v) => {
+      if (Object.keys(f).length < 100 || k in f) f[k] = Math.min(2, (f[k] || 0) + v);
+    };
+    const theme = answerSet.occasionTheme || "everyday";
+    for (const i of items) {
+      add(`item:${i.id}`, 0.5);
+      add(`type:${i.type}`, 1 / n);
+      add(`color:${i.color}`, 1 / n);
+      add(`style:${i.style}`, 1 / n);
+      add(`context:${theme}:${i.style}`, 1 / n);
+      if (answerSet.stylePreference && answerSet.stylePreference !== "none") {
+        add(`context:aesthetic:${answerSet.stylePreference}:${i.style}`, 1 / n);
+      }
     }
-    return featureSet;
+    const pairs = Math.max(1, (n * (n - 1)) / 2);
+    for (let a = 0; a < items.length; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        const st = [items[a].style, items[b].style].sort().join("+");
+        const co = [items[a].color, items[b].color].sort().join("+");
+        add(`style:pair:${st}`, 2 / pairs);
+        add(`color:pair:${co}`, 2 / pairs);
+      }
+    }
+    return f;
   };
 
   const basePieceScore = pieceScore;
@@ -859,11 +880,17 @@
     if (sneakers) {
       score += { business: -3, "business-casual": -1.5, evening: -3, sporty: 1.5, streetwear: 1 }[theme] || 0;
     }
-    if (data.learning && data.ratings.length) {
-      score += 3 * (modelScore(items, rankAnswers()) - 0.5);
-    }
+    score += learningNudge(items);
     return score;
   }
+  // Ratings nudge a suggestion by at most 1.5 points (the occasion and pins
+  // matter more). The nudge grows over the first eight ratings.
+  function learningNudge(items) {
+    if (!data.learning || !data.ratings.length) return 0;
+    const confidence = Math.min(1, data.ratings.length / 8);
+    return 3 * confidence * (modelScore(items, rankAnswers()) - 0.5);
+  }
+  const usingRatings = () => Boolean(data.learning && data.ratings.length);
   function suggest() {
     if (draft.readOnly) return;
     const available = pool();
@@ -985,7 +1012,7 @@
         changed(
           `Suggested for ${occasion}${
             style && style[0] !== "none" ? `, leaning ${style[1].toLowerCase()}` : ""
-          }.${draft.pins.length ? " Your pinned pieces stayed in place." : ""}`,
+          }${usingRatings() ? ", using your ratings" : ""}.${draft.pins.length ? " Your pinned pieces stayed in place." : ""}`,
         );
       } else {
         notice = draft.items.length && draft.items.every((i) =>
@@ -1301,7 +1328,14 @@
         : ""
     }<div class="plan-bar"><p class="plan-status">${statusMain}${
       draft.readOnly ? "" : " · Suggestions use local rules"
-    }${statusNote ? `<br><span>${statusNote}</span>` : ""}</p><div class="simple-actions">${
+    }${statusNote ? `<br><span>${statusNote}</span>` : ""}</p>${
+      draft.readOnly && draft.sourceId && data.looks.some((l) => l.id === draft.sourceId)
+        ? ratingControls(
+          data.looks.find((l) => l.id === draft.sourceId),
+          "Rate this saved look",
+        )
+        : ""
+    }<div class="simple-actions">${
       draft.readOnly
         ? `<button data-new-draft>New look for this date</button><button class="editorial-primary" data-edit-saved>${
           draft.ideaId ? "Edit this idea" : "Edit this look"
@@ -1350,20 +1384,117 @@
   renderBuilder = renderSimpleBuilder;
   renderResult = renderSimpleBuilder;
   previewItems = () => draft.items;
+  // Rating saved looks. Only the person's own saved looks are rated (never
+  // sample ideas). The rating ID is the look ID, so re-rating replaces it.
+  const ratingOf = (id) => data.ratings.find((r) => r.id === id)?.y ?? null;
+  const ratingControls = (look, label) => {
+    const y = ratingOf(look.id);
+    return `<div class="rate" role="group" aria-label="${esc(label)}"><button data-rate-look="${
+      esc(look.id)
+    }" data-rate-value="1" aria-pressed="${y === 1}">Love it</button><button data-rate-look="${
+      esc(look.id)
+    }" data-rate-value="0" aria-pressed="${y === 0}">Not for me</button></div>`;
+  };
+  function rateLook(id, value) {
+    const look = data.looks.find((l) => l.id === id);
+    if (!look || ![0, 1].includes(value)) return false;
+    const beforeRatings = data.ratings, beforeLooks = data.looks;
+    const next = ratingOf(id) === value ? null : value;
+    data.ratings = data.ratings.filter((r) => r.id !== id);
+    if (next !== null) {
+      data.ratings = [...data.ratings, {
+        id,
+        y: next,
+        features: features(look.items, { ...defaults(), ...look.answers }),
+      }].slice(-200);
+    }
+    data.looks = data.looks.map((l) => l.id === id ? { ...l, rating: next } : l);
+    if (!save()) {
+      data.ratings = beforeRatings;
+      data.looks = beforeLooks;
+      toast("Your rating could not be saved. Nothing was changed.");
+      return false;
+    }
+    train();
+    toast(
+      next === 1
+        ? "Saved. Suggestions will lean a little toward looks like this."
+        : next === 0
+        ? "Saved. Suggestions will lean a little away from looks like this."
+        : "Rating cleared.",
+    );
+    return true;
+  }
+  // Plain wording for what the model has picked up.
+  function learnedPhrase(key) {
+    const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+    const occasion = (id) => occasionOptions.find(([o]) => o === id)?.[1];
+    let m;
+    if ((m = key.match(/^style:pair:([a-z]+)\+([a-z]+)$/))) {
+      return m[1] === m[2] ? `All-${m[1]} outfits` : `${cap(m[1])} with ${m[2]} pieces`;
+    }
+    if ((m = key.match(/^color:pair:([a-z]+)\+([a-z]+)$/))) {
+      return m[1] === m[2] ? `All ${m[1]}` : `${cap(m[1])} with ${m[2]}`;
+    }
+    if ((m = key.match(/^style:([a-z]+)$/))) return `${cap(m[1])} pieces`;
+    if ((m = key.match(/^color:([a-z]+)$/))) return `${cap(m[1])} pieces`;
+    if ((m = key.match(/^type:([a-z]+)$/))) return TYPES[m[1]] || null;
+    if ((m = key.match(/^context:([a-z-]+):([a-z]+)$/)) && occasion(m[1])) {
+      return `${cap(m[2])} pieces for ${occasion(m[1])}`;
+    }
+    if ((m = key.match(/^item:(.+)$/))) {
+      return data.items.find((i) => i.id === m[1])?.name || null;
+    }
+    return null;
+  }
+  renderLearn = function styleLearning() {
+    const n = data.ratings.length,
+      loved = data.ratings.filter((r) => r.y === 1).length;
+    const learned = Object.entries(weights)
+      .filter(([k]) => k !== "bias")
+      .map(([k, w]) => ({ phrase: learnedPhrase(k), w }))
+      .filter((x) => x.phrase && Math.abs(x.w) >= 0.15);
+    const likes = learned.filter((x) => x.w > 0).sort((a, b) => b.w - a.w).slice(0, 4);
+    const dislikes = learned.filter((x) => x.w < 0).sort((a, b) => a.w - b.w).slice(0, 4);
+    const list = (xs) =>
+      xs.length
+        ? `<ul class="learn-list">${xs.map((x) => `<li>${esc(x.phrase)}</li>`).join("")}</ul>`
+        : "<p>Nothing clear yet.</p>";
+    return `<div class="saved-page learn-page"><div class="saved-head"><h1>Style learning</h1><p>Rate your saved looks with Love it or Not for me. Ratings gently nudge future suggestions; the occasion and your pinned pieces always matter more.</p></div><section class="saved-group"><h2>${
+      n ? `Learning from ${n} rated look${n === 1 ? "" : "s"}` : "No ratings yet"
+    }</h2><p>${
+      n
+        ? `${loved} loved, ${n - loved} not for me.${
+          n < 8 ? " Ratings count for more as you add them, up to eight." : ""
+        }${data.learning ? "" : " Learning is off, so ratings are not used right now."}`
+        : "Open a saved look, or use the buttons on Saved looks, to rate it."
+    }</p>${
+      n >= 3 && data.learning
+        ? `<div class="learn-cols"><div><h3>Leaning toward</h3>${list(likes)}</div><div><h3>Leaning away from</h3>${list(dislikes)}</div></div>`
+        : n
+        ? "<p>After three ratings, this page shows what suggestions have picked up.</p>"
+        : ""
+    }</section><section class="saved-group"><h2>Settings</h2><label class="inline-check"><input type="checkbox" id="learning" ${
+      data.learning ? "checked" : ""
+    }> Use my ratings in suggestions</label><p class="ideas-note">Ratings are stored in this browser and included in exports and cloud backups you make.</p><button class="saved-delete" data-action="resetlearning" ${
+      n ? "" : "disabled"
+    }>Clear all ratings</button></section></div>`;
+  };
   // Saved looks page: the selected day first, then every other date
   // (upcoming, earlier, no date recorded). Sample ideas stay in their own
   // section. Opening is read only; deleting asks first.
-  const cardHtml = ({ items, name, date, open, del, tag }) =>
+  const cardHtml = ({ items, name, date, open, del, tag, rate = "" }) =>
     `<article class="look-card saved-card">${board(items)}<div class="saved-card-body"><h3>${
       esc(name)
     }</h3><p>${date ? esc(dateLabel(date)) : "Date not recorded"} · ${items.length} piece${
       items.length === 1 ? "" : "s"
-    }${tag ? ` · ${tag}` : ""}</p></div><div class="saved-card-actions">${open}${del}</div></article>`;
+    }${tag ? ` · ${tag}` : ""}</p></div>${rate}<div class="saved-card-actions">${open}${del}</div></article>`;
   const card = (look) =>
     cardHtml({
       items: look.items,
       name: look.name || "Saved look",
       date: look.plannedDate,
+      rate: ratingControls(look, `Rate ${look.name || "this look"}`),
       open: `<button class="saved-open" data-openlook="${esc(look.id)}">Open</button>`,
       del: `<button class="saved-delete" data-delete-look="${
         esc(look.id)
@@ -1560,6 +1691,7 @@
       "confirmDeleteIdea",
       "deleteLook",
       "confirmDeleteLook",
+      "rateLook",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
@@ -1572,6 +1704,11 @@
     event.stopImmediatePropagation();
     if (target.disabled) return;
     let after = "";
+    if (d.rateLook) {
+      rateLook(d.rateLook, Number(d.rateValue));
+      repaint(`[data-rate-look="${d.rateLook}"][data-rate-value="${d.rateValue}"]`);
+      return;
+    }
     if (d.deleteLook) {
       const look = data.looks.find((l) => l.id === d.deleteLook);
       if (!look) return;
@@ -1935,7 +2072,7 @@
     draft.readOnly = true;
     remember();
     $("#modal").close();
-    notice = "Saved to your lookbook.";
+    notice = "Saved to your saved looks.";
     repaint("[data-edit-saved]");
   }, true);
   document.addEventListener("keydown", (event) => {

@@ -57,7 +57,7 @@ The website is served from `docs/`.
 
 Run `python3 -m http.server 4173 --directory docs`, then visit `http://localhost:4173`.
 
-Run the `test*.cjs` files with Node.js or Deno for automated checks. `test-mfa.cjs` covers the mocked AAL1 lock/AAL2 unlock and the prepared restrictive-policy handoff. `test-suggest.cjs` covers Suggest: pins kept, optional pieces by occasion, close alternatives or a plain notice, and own pieces never filtered. `test-ideas.cjs` covers sample ideas: their own per-account storage, sample-only contents, failure handling, confirmed deletion and Reset everything. No third-party test dependencies are needed.
+Run the `test*.cjs` files with Node.js or Deno for automated checks. `test-mfa.cjs` covers the mocked AAL1 lock/AAL2 unlock and the prepared restrictive-policy handoff. `test-learning.cjs` covers style learning: rating saved looks, backup-safe ratings, the capped effect on suggestions, the off setting and clearing. `test-suggest.cjs` covers Suggest: pins kept, optional pieces by occasion, close alternatives or a plain notice, and own pieces never filtered. `test-ideas.cjs` covers sample ideas: their own per-account storage, sample-only contents, failure handling, confirmed deletion and Reset everything. No third-party test dependencies are needed.
 
 ## Verification
 

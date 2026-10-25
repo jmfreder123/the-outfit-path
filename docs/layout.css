@@ -1007,3 +1007,92 @@ header nav button:not(.active) {
     grid-template-columns: 1fr;
   }
 }
+
+/* Rating saved looks */
+.rate {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.rate button,
+.simple-builder .editorial-stage .rate button {
+  min-height: 40px;
+  padding: 0 10px;
+  color: #4b4842;
+  background: none;
+  border: 1px solid #d8d2c6;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rate button[aria-pressed="true"],
+.simple-builder .editorial-stage .rate button[aria-pressed="true"] {
+  color: #f5f1ea;
+  background: #1d1d1b;
+  border-color: #1d1d1b;
+}
+
+.simple-builder .editorial-stage .plan-bar .rate {
+  flex: none;
+}
+
+.simple-builder .editorial-stage .plan-bar .rate button {
+  height: 48px;
+  min-height: 48px;
+  color: #f2eee6;
+  border-color: #5a5953;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.simple-builder .editorial-stage .plan-bar .rate button[aria-pressed="true"] {
+  color: #1d1d1b;
+  background: #f2eee6;
+  border-color: #f2eee6;
+}
+
+/* Style learning page */
+.learn-page .learn-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.learn-page h3 {
+  margin: 0 0 6px;
+  font: 500 13px/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #77736b;
+}
+
+.learn-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
+.learn-page .inline-check {
+  font-size: 14px;
+}
+
+.learn-page .saved-delete {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+}
+
+.learn-page .saved-delete:disabled {
+  opacity: 0.45;
+}
+
+/* Keep confirmations above the bottom navigation on phones. */
+@media (max-width: 860px) {
+  #toast {
+    bottom: 92px;
+  }
+}
