@@ -53,3 +53,192 @@ header nav button {
 header nav button:not(.active) {
   font-weight: 400;
 }
+
+/* Week strip (date navigation). Light by default; dark inside the Plan panel. */
+.week-strip {
+  --fg: #1d1d1b;
+  --muted: #77736b;
+  --sel-bg: #1d1d1b;
+  --sel-fg: #f5f1ea;
+  --line: #d8d2c6;
+  --dot: #a64b2d;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 0 0 6px;
+  color: var(--fg);
+}
+
+.editorial-stage .week-strip {
+  --fg: #f2eee6;
+  --muted: #b9b4aa;
+  --sel-bg: #f2eee6;
+  --sel-fg: #1d1d1b;
+  --line: #4a4945;
+  --dot: #c9b48a;
+}
+
+.week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 420px;
+}
+
+.week-strip button,
+.simple-builder .editorial-stage .week-strip button {
+  font: inherit;
+  color: var(--fg);
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.week-strip .week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 58px;
+  color: var(--muted);
+}
+
+.week-strip .week-day span {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.week-strip .week-day b {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.week-strip .week-day i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.week-strip .week-day i.saved {
+  background: var(--dot);
+}
+
+.week-strip .week-day.today:not(.selected) b {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.week-strip .week-day.selected,
+.simple-builder .editorial-stage .week-strip .week-day.selected {
+  background: var(--sel-bg);
+  color: var(--sel-fg);
+}
+
+.week-strip .week-day.selected b {
+  color: var(--sel-fg);
+}
+
+.week-strip .week-step,
+.simple-builder .editorial-stage .week-strip .week-step {
+  width: 36px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.week-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.week-strip .week-today,
+.simple-builder .editorial-stage .week-strip .week-today {
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.week-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.week-picker span::after {
+  content: " ▾";
+  color: var(--muted);
+}
+
+/* The real date input covers the label so taps open the native picker. */
+.week-picker input,
+.simple-builder .week-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
+.week-strip button:focus-visible,
+.week-picker:focus-within {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+@media (max-width: 700px) {
+  /* Arrows and days on one row; Today and the month picker below. */
+  .week-strip {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .week-days {
+    max-width: none;
+  }
+
+  .week-tools {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  .week-strip .week-step,
+  .simple-builder .editorial-stage .week-strip .week-step {
+    width: 28px;
+  }
+}
+
+@media (max-width: 360px) {
+  .week-strip .week-day span {
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .week-strip .week-day b {
+    font-size: 16px;
+  }
+}

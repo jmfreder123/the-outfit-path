@@ -801,14 +801,48 @@
         ["bag", "jewelry"].includes(i.type) ||
       i.type === editorialFilter;
   }
+  // Week strip: the seven days (Monday to Sunday) around the selected date,
+  // previous/next week, a month-and-year date picker and Today. A dot marks
+  // days that already have a saved look. Moving between days never saves.
+  function weekDays(key) {
+    const d = dateFromKey(key);
+    const monday = shiftDate(key, -((d.getDay() + 6) % 7));
+    return Array.from({ length: 7 }, (_, i) => shiftDate(monday, i));
+  }
   function dateControls() {
-    return `<div class="editorial-date-nav"><button data-day="-1" aria-label="Previous day">←</button><label><span>${
-      planningDate === localDateKey() ? "Today" : esc(dateLabel(planningDate))
-    }</span><input aria-label="Outfit date" type="date" name="simple-date" value="${
+    const today = localDateKey(), selected = dateFromKey(planningDate);
+    const saved = new Set(data.looks.map((l) => l.plannedDate).filter(Boolean));
+    const days = weekDays(planningDate).map((key) => {
+      const d = dateFromKey(key), isSel = key === planningDate;
+      const full = d.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+      const label = `${full}${key === today ? ", today" : ""}${
+        saved.has(key) ? ", has a saved look" : ""
+      }`;
+      return `<button class="week-day${isSel ? " selected" : ""}${
+        key === today ? " today" : ""
+      }" data-goto-date="${key}" aria-label="${esc(label)}"${
+        isSel ? ' aria-current="date"' : ""
+      }><span>${
+        esc(d.toLocaleDateString(undefined, { weekday: "short" }))
+      }</span><b>${d.getDate()}</b><i class="${
+        saved.has(key) ? "saved" : ""
+      }" aria-hidden="true"></i></button>`;
+    }).join("");
+    const month = selected.toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+    return `<div class="week-strip" role="group" aria-label="Choose a day"><button class="week-step" data-day="-7" aria-label="Previous week">‹</button><div class="week-days">${days}</div><button class="week-step" data-day="7" aria-label="Next week">›</button><div class="week-tools">${
+      planningDate === today ? "" : "<button class=\"week-today\" data-today>Today</button>"
+    }<label class="week-picker"><span aria-hidden="true">${
+      esc(month)
+    }</span><input type="date" name="simple-date" aria-label="Choose a date" value="${
       esc(planningDate)
-    }"></label><button data-today ${
-      planningDate === localDateKey() ? "disabled" : ""
-    }>Today</button><button data-day="1" aria-label="Next day">→</button></div>`;
+    }"></label></div></div>`;
   }
   function preferences() {
     if (draft.readOnly) {
@@ -1138,6 +1172,7 @@
       "boardPiece",
       "swapPiece",
       "closeMenu",
+      "gotoDate",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
@@ -1220,9 +1255,13 @@
       navigateDate(shiftDate(planningDate, Number(d.day)));
       after = `[data-day="${d.day}"]`;
     }
+    if (d.gotoDate) {
+      navigateDate(d.gotoDate);
+      after = `[data-goto-date="${planningDate}"]`;
+    }
     if (d.today !== undefined) {
       navigateDate(localDateKey());
-      after = '[name="simple-date"]';
+      after = `[data-goto-date="${planningDate}"]`;
     }
     if (d.refine !== undefined) {
       refineOpen = !refineOpen;
@@ -1278,6 +1317,14 @@
     }
     repaint(after);
   }, true);
+  // The month label sits over the date input; open the picker on click
+  // where the browser supports it (desktop Chrome otherwise only focuses).
+  document.addEventListener("click", (event) => {
+    const input = event.target.closest?.('input[name="simple-date"]');
+    try {
+      input?.showPicker?.();
+    } catch { /* Picker not available; the input still accepts typing. */ }
+  });
   document.addEventListener("change", (event) => {
     const name = event.target.name, value = event.target.value;
     if (

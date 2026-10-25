@@ -62,7 +62,7 @@ vm.runInContext(fs.readFileSync("docs/app.js", "utf8"), sandbox);
 let src = fs.readFileSync("docs/editorial.js", "utf8");
 src = src.replace(
   /\}\)\(\);\s*$/,
-  `window.qa={state:()=>clone({draft,planningDate,source,pendingReplacement,boardMenu,notice}),sample:(id)=>clone(samples().find((i)=>i.id===id)),layout:(items)=>flatLayout(items).map((p)=>({id:p.item.id,x:p.x,y:p.y,w:p.s.w,h:p.s.h})),swap:swapItem,select:selectItem,suggest,nav:navigateDate,source:s=>{remember();source=s;draft=clone(drafts.get(draftKey())||fresh());},open:openSaved,reset:resetSession,date:localDateKey,shift:shiftDate};})();`,
+  `window.qa={state:()=>clone({draft,planningDate,source,pendingReplacement,boardMenu,notice}),sample:(id)=>clone(samples().find((i)=>i.id===id)),layout:(items)=>flatLayout(items).map((p)=>({id:p.item.id,x:p.x,y:p.y,w:p.s.w,h:p.s.h})),swap:swapItem,week:weekDays,select:selectItem,suggest,nav:navigateDate,source:s=>{remember();source=s;draft=clone(drafts.get(draftKey())||fresh());},open:openSaved,reset:resetSession,date:localDateKey,shift:shiftDate};})();`,
 );
 vm.runInContext(src, sandbox);
 const run = (s) => vm.runInContext(s, sandbox),
@@ -313,6 +313,41 @@ for (
   )
 ) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
+// Week strip: Monday-first weeks, day taps keep per-date drafts and never save.
+{
+  const week = (k) => JSON.parse(JSON.stringify(sandbox.window.qa.week(k)));
+  assert.deepEqual(week("2026-10-25"), ["2026-10-19","2026-10-20","2026-10-21","2026-10-22","2026-10-23","2026-10-24","2026-10-25"], "Sunday belongs to the week starting Monday");
+  assert.equal(week("2026-10-19")[0], "2026-10-19");
+  assert.deepEqual([week("2027-01-01")[0], week("2027-01-01")[6]], ["2026-12-28", "2027-01-03"], "weeks cross year boundaries");
+  assert.deepEqual([week("2026-03-01")[0], week("2026-03-01")[6]], ["2026-02-23", "2026-03-01"]);
+  sandbox.window.qa.reset();
+  click({ wardrobeSource: "sample" });
+  const today = state().planningDate;
+  let html = run("renderBuilder()");
+  assert.equal((html.match(/data-goto-date=/g) || []).length, 7);
+  assert(html.includes(`data-goto-date="${today}"`) && html.includes('aria-current="date"'));
+  assert(!html.includes("data-today"), "Today button hidden when already on today");
+  const before = writes;
+  click({ selectPiece: "demo-cream-merino-knit" });
+  const other = week(today).find((k) => k !== today);
+  click({ gotoDate: other });
+  assert.equal(state().planningDate, other);
+  assert.equal(state().draft.items.length, 0, "another day starts with its own empty draft");
+  assert(run("renderBuilder()").includes("data-today"), "Today button shown away from today");
+  click({ day: "7" });
+  assert.equal(state().planningDate, sandbox.window.qa.shift(other, 7), "next week keeps the weekday");
+  click({ today: "" });
+  assert.equal(state().planningDate, today);
+  assert.deepEqual(state().draft.items.map((i) => i.id), ["demo-cream-merino-knit"], "returning restores the draft");
+  assert.equal(writes, before, "day navigation never saves");
+  run(`data.looks.push({id:'week-dot',name:'Dot',plannedDate:'${other}',items:[],answers:{}})`);
+  html = run("renderBuilder()");
+  const dayButton = html.match(new RegExp(`<button[^>]*data-goto-date="${other}"[^>]*>.*?</button>`))[0];
+  assert(dayButton.includes("has a saved look") && dayButton.includes('class="saved"'), "saved look marked on its day");
+  run("data.looks=data.looks.filter(l=>l.id!=='week-dot')");
+  sandbox.window.qa.reset();
+}
+
 // Flat-lay board: body order, real-world scale, piece menu, swap.
 {
   const L = sandbox.window.qa.layout(run(`[
@@ -390,5 +425,5 @@ assert(!src.includes("addEventListener('drag"));
 }
 
 console.log(
-  "PASS: flat-lay order/scale/menu/swap; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
+  "PASS: flat-lay order/scale/menu/swap; week strip; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
 );
