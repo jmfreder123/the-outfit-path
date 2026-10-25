@@ -121,7 +121,7 @@ assert.equal(
   "sample",
   "empty owned wardrobe immediately discovers samples",
 );
-assert(run('renderBuilder().includes("Sample wardrobe <span>16</span>")'));
+assert(run('renderBuilder().includes("Samples <span>16</span>")'));
 assert(!run('renderBuilder().includes("mannequin.svg")'), "rejected mannequin is not shown");
 assert(run('renderBuilder().includes("Your outfit will appear here.")'));
 assert.equal(

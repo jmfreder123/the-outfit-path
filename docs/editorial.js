@@ -858,7 +858,7 @@
         )
       }</p>`;
     }
-    return `<div class="simple-preferences"><label>Occasion<select name="simple-occasion">${
+    return `<div class="simple-preferences plan-prefs"><label class="plan-occasion"><span class="plan-sr">Occasion</span><select name="simple-occasion">${
       occasionOptions.map(([id, label]) =>
         `<option value="${id}" ${
           draft.answers.occasionTheme === id ? "selected" : ""
@@ -911,13 +911,12 @@
   }
   function wardrobePane() {
     const list = pool().filter(filterMatch);
-    return `<section class="editorial-wardrobe" aria-labelledby="wardrobe-heading"><div class="editorial-wardrobe-heading"><div><h2 id="wardrobe-heading">${
-      source === "sample" ? "Sample wardrobe" : "Your wardrobe. Your rules."
-    }</h2><p>${
+    const inLook = (id) => draft.items.some((p) => p.id === id);
+    return `<section class="editorial-wardrobe plan-wardrobe" aria-labelledby="wardrobe-heading"><div class="editorial-wardrobe-heading plan-wardrobe-head"><div><h2 id="wardrobe-heading">Wardrobe</h2><p>${
       draft.readOnly
-        ? "Read-only preview. Choose Edit this look to make changes."
-        : "Tap a piece to add and pin it."
-    }</p></div><button data-close-wardrobe aria-label="Close wardrobe panel">×</button></div><div class="wardrobe-source-tabs" role="group" aria-label="Wardrobe source">
+        ? "Saved looks are read only. Choose Edit this look to make changes."
+        : "Tap a piece to add it. Tap it on the board to pin, swap or remove."
+    }</p></div><button class="plan-close" data-close-wardrobe aria-label="Close wardrobe panel">×</button></div><div class="wardrobe-source-tabs plan-source" role="group" aria-label="Wardrobe source">
       <button data-wardrobe-source="owned" aria-pressed="${
       source === "owned"
     }" ${
@@ -927,48 +926,56 @@
       source === "sample"
     }" ${
       draft.readOnly ? "disabled" : ""
-    }>Sample wardrobe <span>${samples().length}</span></button>
-    </div><div class="editorial-filter-row" aria-label="Filter wardrobe">${
+    }>Samples <span>${samples().length}</span></button>
+    </div><div class="editorial-filter-row plan-chips" role="group" aria-label="Filter wardrobe">${
       wardrobeFilters.map(([id, label]) =>
         `<button data-simple-filter="${id}" aria-pressed="${
           editorialFilter === id
         }" class="${editorialFilter === id ? "active" : ""}">${label}</button>`
       ).join("")
-    }</div><div class="editorial-piece-grid" aria-label="Wardrobe pieces">${
+    }</div><div class="editorial-piece-grid plan-grid" role="list" aria-label="Wardrobe pieces">${
       list.map((i) =>
-        `<button class="editorial-piece simple-card" data-select-piece="${
+        `<div role="listitem"><button class="editorial-piece simple-card plan-card${
+          inLook(i.id) ? " in-look" : ""
+        }" data-select-piece="${
           esc(i.id)
         }" ${draft.readOnly ? "disabled" : ""} aria-label="Add and pin ${
           esc(i.name)
         }" aria-describedby="state-${
           esc(i.id)
-        }"><span class="editorial-piece-art">${garmentArt(i)}</span><strong>${
+        }"><span class="editorial-piece-art">${garmentArt(i)}</span>${
+          inLook(i.id) ? '<span class="plan-in-look" aria-hidden="true">✓ In look</span>' : ""
+        }<strong>${
           esc(i.name)
         }</strong><small id="state-${esc(i.id)}">${
-          draft.items.some((p) => p.id === i.id)
+          inLook(i.id)
             ? draft.readOnly
               ? "Saved item"
               : draft.pins.includes(i.id)
               ? "In this look · Pinned"
-              : "In this look · Unpinned"
+              : "In this look · Suggested"
             : source === "sample"
-            ? "Fictional sample"
+            ? "Sample"
             : i.ownedCopy
             ? "Deliberately added sample"
             : "Your piece"
-        }</small></button>`
+        }</small></button></div>`
       ).join("")
     }</div>${
       !list.length
-        ? "<p>No clothes here yet. Add an item, or explore the separate sample wardrobe.</p>"
+        ? `<p class="plan-empty">${
+          source === "owned" && !owned().length
+            ? "No clothes of your own yet. Add an item, or try the samples."
+            : "Nothing in this category."
+        }</p>`
         : ""
     }${
       draft.readOnly
         ? ""
-        : '<button class="editorial-secondary" data-action="additem">Add an item</button>'
-    }<p class="editorial-sample-note">${
+        : '<button class="editorial-secondary plan-add" data-action="additem">Add an item</button>'
+    }<p class="editorial-sample-note plan-note">${
       source === "sample"
-        ? "Fictional samples are separate from your closet. Sample previews cannot be saved as owned looks."
+        ? "Samples are fictional and stay separate from your closet. Sample looks aren't saved to your lookbook."
         : "Only your available pieces are suggested. Existing starter records are preserved in Closet."
     }</p></section>`;
   }
@@ -981,100 +988,98 @@
         !(draft.items.some((i) => i.type === "top") &&
           draft.items.some((i) => ["pants", "skirt"].includes(i.type))) ||
       !draft.items.some((i) => SHOES.includes(i.type));
-    return `<div class="editorial-shell simple-builder ${
+    const heading = dateFromKey(planningDate).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+    const pinCount = draft.pins.filter((id) =>
+      draft.items.some((i) => i.id === id)
+    ).length;
+    const statusMain = draft.readOnly
+      ? `<b>Saved look</b> · ${
+        draft.sourceDate ? esc(dateLabel(draft.sourceDate)) : "date not recorded"
+      } · read only`
+      : source === "sample"
+      ? `<b>Sample preview</b>${pinCount ? ` · ${pinCount} pinned` : ""}`
+      : draft.dirty
+      ? `<b>Unsaved changes</b>${pinCount ? ` · ${pinCount} pinned` : ""}`
+      : "<b>Unsaved draft</b>";
+    const statusNote = draft.readOnly
+      ? ""
+      : source === "sample"
+      ? "Sample looks aren't saved to your lookbook."
+      : `${
+        partial && draft.items.length ? "Partial look; you can save it as it is. " : ""
+      }Drafts last for this session only. Save before closing.`;
+    return `<div class="editorial-shell simple-builder plan-layout ${
       wardrobeOpen ? "" : "wardrobe-closed"
-    }"><section class="editorial-stage" aria-labelledby="look-heading">${dateControls()}<div class="editorial-stage-top"><h1 id="look-heading">${
-      draft.readOnly
-        ? "Your saved look"
-        : draft.items.length
-        ? "Build around a favourite."
-        : "A little direction for your day."
-    }</h1>${
-      wardrobeOpen ? "" : "<button data-open-wardrobe>Open wardrobe</button>"
-    }</div>${preferences()}<p class="editorial-preview-note">${
-      source === "sample" ? "Sample wardrobe · fictional demo" : "My wardrobe"
-    }</p><div class="editorial-canvas" role="group" aria-label="Outfit board">${
-      figureBoard(draft.items)
-    }</div><p class="mannequin-caption">Laid out flat at approximate scale. Not a fit or try-on preview.</p>${
-      !draft.items.length
-        ? `<p class="mannequin-help">${
-          pool().length
-            ? "Tap a piece in the wardrobe to add it, or choose Suggest a look. Tap a piece on the board to pin, swap or remove it."
-            : "No personal clothes added yet. Choose Sample wardrobe to explore, or add an item."
-        }</p>`
-        : ""
-    }<p>${
-      draft.readOnly
-        ? `Saved${
-          draft.sourceDate
-            ? " for " + esc(dateLabel(draft.sourceDate))
-            : " · date not recorded"
-        }`
-        : source === "sample"
-        ? "Sample preview · " + draft.pins.length + " pinned"
-        : draft.dirty
-        ? "Unsaved changes · " + draft.pins.length + " pinned"
-        : "Unsaved draft"
-    }${
-      partial && draft.items.length && !draft.readOnly && source === "owned"
-        ? " · Partial look; you can save it as it is."
-        : ""
-    }</p>${
-      pendingReplacement
-        ? `<section class="simple-confirm" role="region" aria-labelledby="replace-question"><h2 id="replace-question" tabindex="-1">Replace ${
-          esc(pendingReplacement.conflicts.join(" and "))
-        } with ${
-          esc(pool().find((i) => i.id === pendingReplacement.id)?.name)
-        }?</h2><p>The current pieces stay pinned until you confirm. This may leave a partial look.</p><button data-cancel-replace>Cancel</button><button data-confirm-replace>Replace</button></section>`
-        : ""
-    }${
+    }"><section class="editorial-stage plan-stage" aria-labelledby="look-heading">${dateControls()}<div class="plan-head"><h1 id="look-heading">${
+      esc(heading)
+    }</h1>${preferences()}${
+      wardrobeOpen ? "" : '<button class="plan-open" data-open-wardrobe>Open wardrobe</button>'
+    }</div><div class="editorial-canvas" role="group" aria-label="Outfit board"><span class="plan-source-tag">${
+      source === "sample" ? "Sample wardrobe · fictional" : "My wardrobe"
+    }</span>${
       notice
-        ? `<div class="editorial-status" role="status">${
+        ? `<div class="editorial-status plan-notice" role="status">${
           esc(notice)
         } <button data-dismiss>Dismiss</button></div>`
         : ""
-    }<div class="simple-actions">${
-      draft.readOnly
-        ? "<button data-edit-saved>Edit this look</button><button data-new-draft>New look for this date</button>"
-        : `<button class="editorial-primary" data-save-draft ${
-          !draft.items.length || saving || source === "sample" ? "disabled" : ""
-        }>${
-          draft.sourceId ? "Update saved look" : "Save look"
-        }</button><button data-suggest ${!pool().length ? "disabled" : ""}>${
-          draft.items.length ? "Suggest the rest" : "Suggest a look"
-        }</button>`
-    }</div><p class="editorial-preview-note">Local rule-based suggestions</p><section class="simple-selected" aria-label="In this look"><h2 tabindex="-1" id="selected-heading">In this look${
-      draft.readOnly ? " · Read only" : ""
-    }</h2>${
-      draft.items.map((i) =>
-        `<div class="simple-selected-row"><span><strong>${
-          esc(i.name)
-        }</strong><small>${
-          draft.readOnly
-            ? "Saved item"
-            : draft.pins.includes(i.id)
-            ? "Pinned"
-            : "Unpinned"
-        }</small></span>${
-          draft.readOnly
-            ? ""
-            : `<button data-pin-piece="${esc(i.id)}" aria-label="${
-              draft.pins.includes(i.id) ? "Unpin" : "Pin"
-            } ${esc(i.name)}">${
-              draft.pins.includes(i.id) ? "Unpin" : "Pin"
-            }</button><button data-remove-piece="${
-              esc(i.id)
-            }" aria-label="Remove ${esc(i.name)}">Remove</button>`
-        }</div>`
-      ).join("")
-    }</section>${
-      !draft.readOnly
-        ? `<p class="editorial-preview-note">${
-          source === "sample"
-            ? "Sample selections stay for this session only. They do not change your wardrobe."
-            : "Unsaved drafts stay for this session only. Save before refreshing or closing."
+    }${figureBoard(draft.items)}${
+      pendingReplacement
+        ? `<section class="simple-confirm plan-confirm" role="region" aria-labelledby="replace-question"><h2 id="replace-question" tabindex="-1">Replace ${
+          esc(pendingReplacement.conflicts.join(" and "))
+        } with ${
+          esc(pool().find((i) => i.id === pendingReplacement.id)?.name)
+        }?</h2><p>Pinned pieces stay until you confirm. This may leave a partial look.</p><div class="plan-confirm-actions"><button data-cancel-replace>Cancel</button><button class="editorial-primary" data-confirm-replace>Replace</button></div></section>`
+        : ""
+    }</div>${
+      !draft.items.length && !draft.readOnly
+        ? `<p class="mannequin-help plan-help">${
+          pool().length
+            ? "Tap a piece in the wardrobe to add it, or choose Suggest a look. Tap a piece on the board to pin, swap or remove it."
+            : "No personal clothes added yet. Choose Samples to explore, or add an item."
         }</p>`
         : ""
+    }<div class="plan-bar"><p class="plan-status">${statusMain}${
+      draft.readOnly ? "" : " · Suggestions use local rules"
+    }${statusNote ? `<br><span>${statusNote}</span>` : ""}</p><div class="simple-actions">${
+      draft.readOnly
+        ? "<button data-new-draft>New look for this date</button><button class=\"editorial-primary\" data-edit-saved>Edit this look</button>"
+        : `<button data-suggest ${!pool().length ? "disabled" : ""}>${
+          draft.items.length ? "Suggest the rest" : "Suggest a look"
+        }</button><button class="editorial-primary" data-save-draft ${
+          !draft.items.length || saving || source === "sample" ? "disabled" : ""
+        }>${draft.sourceId ? "Update saved look" : "Save look"}</button>`
+    }</div></div><p class="mannequin-caption plan-caption">Laid out flat at approximate scale. Not a fit or try-on preview.</p>${
+      draft.items.length
+        ? `<details class="simple-selected plan-pieces"><summary><h2 tabindex="-1" id="selected-heading">Pieces in this look (${draft.items.length})${
+          draft.readOnly ? " · read only" : ""
+        }</h2></summary>${
+          draft.items.map((i) =>
+            `<div class="simple-selected-row"><span><strong>${
+              esc(i.name)
+            }</strong><small>${
+              draft.readOnly
+                ? "Saved item"
+                : draft.pins.includes(i.id)
+                ? "Pinned"
+                : "Not pinned"
+            }</small></span>${
+              draft.readOnly
+                ? ""
+                : `<button data-pin-piece="${esc(i.id)}" aria-label="${
+                  draft.pins.includes(i.id) ? "Unpin" : "Pin"
+                } ${esc(i.name)}">${
+                  draft.pins.includes(i.id) ? "Unpin" : "Pin"
+                }</button><button data-remove-piece="${
+                  esc(i.id)
+                }" aria-label="Remove ${esc(i.name)}">Remove</button>`
+            }</div>`
+          ).join("")
+        }</details>`
+        : '<h2 class="plan-sr" tabindex="-1" id="selected-heading">No pieces in this look</h2>'
     }</section>${wardrobeOpen ? wardrobePane() : ""}</div>`;
   }
   renderBuilder = renderSimpleBuilder;

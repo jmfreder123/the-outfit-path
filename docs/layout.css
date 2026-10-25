@@ -242,3 +242,484 @@ header nav button:not(.active) {
     font-size: 16px;
   }
 }
+
+/* Plan page: board panel left, wardrobe right (stacked on phones). */
+.plan-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.editorial-shell.plan-layout {
+  grid-template-areas: "stage wardrobe";
+  grid-template-columns: minmax(0, 1.35fr) minmax(380px, 1fr);
+}
+
+.editorial-shell.plan-layout.wardrobe-closed {
+  grid-template-areas: "stage";
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.simple-builder.plan-layout .plan-stage {
+  padding: 22px 32px 30px;
+}
+
+.editorial-shell.plan-layout.wardrobe-closed .plan-stage {
+  padding-inline: max(32px, calc((100vw - 1100px) / 2));
+}
+
+.plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 12px 0 4px;
+}
+
+.plan-head h1 {
+  margin: 0;
+  color: #f2eee6;
+  font: 300 clamp(30px, 3vw, 42px)/1.08 var(--serif);
+  letter-spacing: -0.015em;
+}
+
+.plan-head .simple-preferences {
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-head .simple-preferences label {
+  display: block;
+  flex: none;
+}
+
+.simple-builder .plan-head select {
+  height: 44px;
+  min-height: 44px;
+  padding: 0 38px 0 16px;
+  color: #f2eee6;
+  background: #232321 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23b9b4aa' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center;
+  border: 1px solid #4a4945;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 14px;
+}
+
+.simple-builder .editorial-stage .plan-head [data-refine],
+.simple-builder .editorial-stage .plan-head .plan-open {
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid #4a4945;
+  border-radius: 999px;
+  font-size: 14px;
+}
+
+.plan-head .simple-refine #refine-panel {
+  border-radius: 14px;
+  border-color: #4a4945;
+}
+
+.simple-builder .editorial-stage #refine-panel button {
+  margin: 8px 8px 0 0;
+  border-radius: 10px;
+}
+
+/* Source label on the board */
+.plan-source-tag {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 5;
+  padding: 5px 10px;
+  color: #b9b4aa;
+  background: rgba(29, 29, 27, 0.6);
+  border: 1px solid #4a4945;
+  border-radius: 999px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.plan-layout .flatlay-stage {
+  /* Fit the board so the status and buttons stay on screen. */
+  height: clamp(340px, calc(100vh - 400px), 720px);
+  padding-top: 56px;
+}
+
+@media (max-width: 700px) {
+  .plan-layout .flatlay-stage {
+    height: 440px;
+  }
+
+  .simple-builder .plan-notice {
+    top: 48px;
+    left: 8px;
+    right: 8px;
+    max-width: none;
+  }
+}
+
+.plan-help {
+  margin: 0 0 6px;
+  color: #b9b4aa;
+  font-size: 13px;
+}
+
+.simple-builder .plan-notice {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(460px, calc(100% - 24px));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  margin: 0;
+  padding: 8px 8px 8px 14px;
+  color: #e9e1cf;
+  background: #2b2b29;
+  border-left: 3px solid #c9b48a;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.simple-builder .editorial-stage .plan-notice button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-color: #4a4945;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+/* Status and actions */
+.plan-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.plan-status {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: #b9b4aa;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.plan-status b {
+  color: #f2eee6;
+  font-weight: 500;
+}
+
+.plan-bar .simple-actions {
+  flex: none;
+  gap: 10px;
+}
+
+.simple-builder .editorial-stage .plan-bar button {
+  height: 48px;
+  padding: 0 22px;
+  color: #f2eee6;
+  background: none;
+  border: 1px solid #5a5953;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.simple-builder .editorial-stage .plan-bar button.editorial-primary {
+  color: #1d1d1b;
+  background: #f2eee6;
+  border-color: #f2eee6;
+}
+
+.simple-builder .editorial-stage .plan-bar button:disabled {
+  opacity: 0.4;
+}
+
+.plan-caption {
+  margin: 10px 0 0;
+  color: #8f8a81;
+}
+
+/* Pieces list: collapsed text summary with Pin and Remove */
+.plan-pieces {
+  margin-top: 16px;
+  border-top: 1px solid #3a3a37;
+}
+
+.plan-pieces summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.plan-pieces summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-pieces summary::after {
+  content: "▾";
+  margin-left: 8px;
+  color: #8f8a81;
+}
+
+.plan-pieces[open] summary::after {
+  content: "▴";
+}
+
+.plan-pieces summary h2 {
+  margin: 0;
+  color: #d8d3cc;
+  font: 500 12px/1.4 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.simple-builder .editorial-stage .plan-pieces .simple-selected-row button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-color: #4a4945;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+/* Wardrobe panel */
+.simple-builder.plan-layout .plan-wardrobe {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 22px 28px 32px;
+}
+
+.simple-builder .plan-wardrobe-head h2 {
+  margin: 0;
+  font: 400 28px/1.1 var(--serif);
+  letter-spacing: -0.01em;
+}
+
+.plan-wardrobe .plan-wardrobe-head p {
+  margin: 4px 0 0;
+  color: #77736b;
+  font-size: 14px;
+}
+
+.plan-close {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  color: #4b4842;
+  background: none;
+  border: 1px solid #d8d2c6;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.wardrobe-source-tabs.plan-source {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 16px 0 12px;
+  padding: 4px;
+  background: #ece7de;
+  border-radius: 12px;
+}
+
+.wardrobe-source-tabs.plan-source button {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  color: #6c6860;
+  background: none;
+  border: 0;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.wardrobe-source-tabs.plan-source button[aria-pressed="true"] {
+  color: #1d1d1b;
+  background: #fff;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.wardrobe-source-tabs.plan-source span {
+  margin-left: 4px;
+  color: #8f8a81;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.editorial-filter-row.plan-chips {
+  gap: 6px;
+  padding-bottom: 2px;
+  border: 0;
+  scrollbar-width: none;
+}
+
+.editorial-filter-row.plan-chips button {
+  height: 36px;
+  min-height: 36px;
+  padding: 0 13px;
+  color: #4b4842;
+  border: 1px solid #ddd7cc;
+  border-radius: 999px;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.editorial-filter-row.plan-chips button.active {
+  color: #f5f1ea;
+  background: #1d1d1b;
+  border-color: #1d1d1b;
+  font-weight: 500;
+}
+
+.simple-builder .editorial-piece-grid.plan-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-height: none;
+  margin-top: 12px;
+  padding: 0;
+  overflow: visible;
+}
+
+.editorial-piece.plan-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 10px 10px 12px;
+  background: #ece7de;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+}
+
+.editorial-piece.plan-card:hover {
+  border-color: #b9b2a6;
+}
+
+.editorial-piece.plan-card.in-look {
+  background: #e6e0d4;
+  border-color: #1d1d1b;
+}
+
+.simple-builder .plan-card .editorial-piece-art {
+  height: auto;
+  aspect-ratio: 1 / 1;
+  padding: 6px;
+}
+
+.plan-card strong {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.plan-card small {
+  margin: 2px 0 0;
+  color: #77736b;
+  font-size: 12px;
+}
+
+.plan-in-look {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  color: #f5f1ea;
+  background: #1d1d1b;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.plan-empty {
+  margin: 16px 0 0;
+  color: #4b4842;
+}
+
+.simple-builder .plan-wardrobe > .plan-add {
+  margin-top: 16px;
+  border-radius: 12px;
+}
+
+.plan-note {
+  color: #77736b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Replacement question, docked at the bottom of the board like the piece menu. */
+.simple-builder .plan-confirm {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 41;
+  width: min(380px, calc(100% - 28px));
+  margin: 0;
+  padding: 14px;
+  color: #1d1d1b;
+  background: #f5f1ea;
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.simple-builder .plan-confirm h2 {
+  margin: 0 0 4px;
+  font: 600 14px/1.35 var(--sans);
+}
+
+.simple-builder .plan-confirm p {
+  margin: 0 0 12px;
+  color: #6c6860;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.plan-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.simple-builder .editorial-stage .plan-confirm button {
+  min-height: 44px;
+  margin: 0;
+  color: #1d1d1b;
+  background: #fff;
+  border: 1px solid #d8d2c6;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.simple-builder .editorial-stage .plan-confirm button.editorial-primary {
+  color: #f5f1ea;
+  background: #1d1d1b;
+  border-color: #1d1d1b;
+}
+
+@media (max-width: 700px) {
+  .simple-builder .plan-confirm {
+    left: 8px;
+    bottom: 8px;
+    width: calc(100% - 16px);
+  }
+}
