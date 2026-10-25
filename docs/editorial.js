@@ -481,7 +481,7 @@
         const bx = p.x + p.s.w * edge, by = p.y + p.s.h * (p.badge === "bl" ? 0.9 : 0.15);
         return `<span class="flatlay-pin" aria-hidden="true" style="left:${pct((bx - x0) / W)};top:${
           pct((by - y0) / H)
-        }"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 1.5l4 4-2 1-2.6 2.6.6 3.4-1.5 1.5L6.2 11 2.5 14.7l-1.2-1.2L5 9.8 2 6.9l1.5-1.5 3.4.6L9.5 3.4z"/></svg></span>`;
+        }"></span>`;
       }).join("")
       : "";
     return `<div class="flatlay" style="--ar:${(W / H).toFixed(4)}">${pieces}${badges}</div>`;
