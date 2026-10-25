@@ -114,14 +114,27 @@ function submit(name) {
 assert.equal(run("data.items.length"), 42);
 assert.equal(state().draft.items.length, 0);
 assert(run('renderBuilder().includes("My wardrobe")'));
+assert.equal(
+  state().source,
+  "sample",
+  "empty owned wardrobe immediately discovers samples",
+);
+assert(run('renderBuilder().includes("Sample wardrobe <span>16</span>")'));
+assert(run('renderBuilder().includes("Neutral outfit planning mannequin")'));
+assert.equal(
+  (run("renderBuilder()").match(/data-select-piece=/g) || []).length,
+  16,
+);
+assert.equal(writes, 0);
 assert(!run('renderBuilder().includes("draggable")'));
 assert(!run('renderBuilder().includes("data-outfit-slot")'));
 assert(!run('renderBuilder().includes("Choose myself")'));
 run("data.items[0].name='User customized skirt'");
+click({ wardrobeSource: "owned" });
 assert(run('renderBuilder().includes("User customized skirt")'));
 run("data=initial()");
 // Explicit sample source is separate and never imported.
-change("simple-source", "sample");
+click({ wardrobeSource: "sample" });
 click({ selectPiece: "demo-emerald-slip-dress" });
 click({ suggest: "" });
 assert(state().draft.items.some((i) => i.type === "dress"));
@@ -133,7 +146,7 @@ assert(
 assert.equal(run("data.items.length"), 42);
 assert.equal(writes, 0);
 assert(run('renderBuilder().includes("data-save-draft disabled")'));
-change("simple-source", "owned");
+click({ wardrobeSource: "owned" });
 assert.equal(state().draft.items.length, 0);
 run(
   `data.items=[{...seed()[15],id:'top-a'},{...seed()[13],id:'top-b'},{...seed()[6],id:'pants-a'},{...seed()[5],id:'pants-b'},{...seed()[8],id:'dress-a'},{...seed()[11],id:'dress-b'},{...seed()[20],id:'shoe-a'},{...seed()[27],id:'shoe-b'},{...seed()[33],id:'layer-a'},{...seed()[36],id:'bag-a'},{...seed()[39],id:'jewelry-a'}]`,
@@ -284,6 +297,19 @@ const savedData = run("JSON.stringify(data)");
 sandbox.window.qa.reset();
 assert.equal(state().draft.items.length, 0);
 assert.equal(run("JSON.stringify(data)"), savedData);
+run("renderBuilder()");
+assert.equal(
+  state().source,
+  "owned",
+  "existing personal pieces remain the default",
+);
+assert.equal(run("JSON.stringify(data)"), savedData);
+assert(fs.existsSync("docs/assets/mannequin.svg"));
+for (
+  const path of [...src.matchAll(/assets\/design3\/[a-z-]+\.png/g)].map((m) =>
+    m[0]
+  )
+) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
 console.log(
   "PASS: tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",

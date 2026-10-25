@@ -1,5 +1,17 @@
 # Genderless Redesign QA
 
+## Current pass — discoverable samples and neutral mannequin, 2026-10-25
+
+Supersedes the body-free canvas and source-dropdown description in the previous pass. My wardrobe and Sample wardrobe are now visible source buttons with exact available counts. Empty owned scopes initially show the separate 16-item sample catalog; choosing My wardrobe explicitly still shows its empty state. Existing owned pieces remain the default for nonempty accounts. Source changes preserve each session draft and never add a sample to stored personal items.
+
+Added an original neutral SVG mannequin as a visual planning guide. The existing add/pin, confirmed replacement, Suggest, Unpin and Remove actions place faithful cutouts at category anchors on the same figure. No new drag controls, body inference, photo processing, 3D model or fit prediction. Accessories remain alongside the figure, and product-photo viewing angles remain unchanged. The UI explicitly labels the arrangement illustrative. Add an item now has a dark background and cream text on the wardrobe pane. Sample selections use preview wording rather than claiming a savable personal draft.
+
+Browser evidence: isolated synthetic fixture `http://127.0.0.1:4174/fixture.html?empty`, in-app browser; the user's signed-in and recovery tabs were not refreshed or edited. Actual clicks and keyboard Enter verified all 16 sample cards, empty My wardrobe count 0, sample source restoration, pinned dress + Suggest completion, confirmed dress-to-shirt replacement, jeans placement, layer removal and Unpin retention. The fixture's 42 untouched legacy starter records remained unchanged and no test look was saved. Captured and directly inspected inline full-page desktop and narrow screenshots for a dress and for hoodie/jeans/sneakers. The latter shows the entire approved sneaker image after fixing grid intrinsic sizing that initially clipped it. Picture and image rectangles now match the 166.39 × 86.39 footwear container; object-fit is contain. All displayed images loaded. At 390px and 320px, document width equals viewport width; no horizontal overflow. Browser error/warning log was empty. Physical touch hardware was not tested.
+
+All eight automated suites and Deno static checks pass. New checks assert automatic sample discovery, 16 cards/count, mannequin asset presence, explicit source buttons, and personal-source default when actual owned pieces exist. All previous pin/date/save/account/privacy checks remain. No approved garment image files were edited; only the original mannequin SVG was added. Screenshot evidence is inline browser capture; a persistent screenshot-file export remains unavailable through this controller. Formal pixel-artifact comparison is not claimed.
+
+Remaining limits: only 16 approved photographic catalog items, original product-photo angles rather than retargeted/fitted garments, no physical-device test, and existing backend MFA/live account-isolation release checks remain separate. This local update does not deploy itself.
+
 ## Current pass — tap-first builder, 2026-10-25
 
 This section supersedes the older mode/drag/six-step observations below. Those sections remain as historical evidence, not the current interaction contract.

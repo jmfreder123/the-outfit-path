@@ -424,6 +424,7 @@
     draft = fresh(),
     drafts = new Map(),
     source = "owned";
+  let sourceChosen = false;
   let wardrobeOpen = true,
     editorialFilter = "all",
     notice = "",
@@ -631,6 +632,21 @@
         : ""
     }</div></div>`;
   }
+  function chooseSource(next) {
+    if (draft.readOnly) return;
+    remember();
+    source = next === "sample" ? "sample" : "owned";
+    sourceChosen = true;
+    draft = clone(drafts.get(draftKey()) || fresh());
+    pendingReplacement = null;
+    notice = "";
+    editorialFilter = "all";
+  }
+  function figureBoard(items) {
+    return `<div class="mannequin-board"><img class="mannequin-guide" src="assets/mannequin.svg" alt="Neutral outfit planning mannequin">${
+      board(items)
+    }</div>`;
+  }
   function wardrobePane() {
     const list = pool().filter(filterMatch);
     return `<section class="editorial-wardrobe" aria-labelledby="wardrobe-heading"><div class="editorial-wardrobe-heading"><div><h2 id="wardrobe-heading">${
@@ -639,13 +655,18 @@
       draft.readOnly
         ? "Read-only preview. Choose Edit this look to make changes."
         : "Tap a piece to add and pin it."
-    }</p></div><button data-close-wardrobe aria-label="Close wardrobe panel">×</button></div><label class="simple-source">Browse<select name="simple-source" ${
+    }</p></div><button data-close-wardrobe aria-label="Close wardrobe panel">×</button></div><div class="wardrobe-source-tabs" role="group" aria-label="Wardrobe source">
+      <button data-wardrobe-source="owned" aria-pressed="${
+      source === "owned"
+    }" ${
       draft.readOnly ? "disabled" : ""
-    }><option value="owned" ${
-      source === "owned" ? "selected" : ""
-    }>My wardrobe</option><option value="sample" ${
-      source === "sample" ? "selected" : ""
-    }>Sample wardrobe · fictional demo</option></select></label><div class="editorial-filter-row" aria-label="Filter wardrobe">${
+    }>My wardrobe <span>${owned().length}</span></button>
+      <button data-wardrobe-source="sample" aria-pressed="${
+      source === "sample"
+    }" ${
+      draft.readOnly ? "disabled" : ""
+    }>Sample wardrobe <span>${samples().length}</span></button>
+    </div><div class="editorial-filter-row" aria-label="Filter wardrobe">${
       wardrobeFilters.map(([id, label]) =>
         `<button data-simple-filter="${id}" aria-pressed="${
           editorialFilter === id
@@ -690,6 +711,10 @@
     }</p></section>`;
   }
   function renderSimpleBuilder() {
+    if (!sourceChosen) {
+      source = owned().length ? "owned" : "sample";
+      sourceChosen = true;
+    }
     const partial = !draft.items.some((i) => i.type === "dress") &&
         !(draft.items.some((i) => i.type === "top") &&
           draft.items.some((i) => ["pants", "skirt"].includes(i.type))) ||
@@ -706,30 +731,30 @@
       wardrobeOpen ? "" : "<button data-open-wardrobe>Open wardrobe</button>"
     }</div>${preferences()}<p class="editorial-preview-note">${
       source === "sample" ? "Sample wardrobe · fictional demo" : "My wardrobe"
-    }</p><div class="editorial-canvas" aria-label="Outfit canvas">${
-      draft.items.length
-        ? board(draft.items)
-        : `<div class="simple-empty"><h2>${
+    }</p><div class="editorial-canvas" aria-label="Dress the mannequin">${
+      figureBoard(draft.items)
+    }</div><p class="mannequin-caption">Visual outfit planner · proportions are illustrative, not a fit or virtual try-on preview.</p>${
+      !draft.items.length
+        ? `<p class="mannequin-help">${
           pool().length
-            ? "Choose an item, or Suggest a look."
-            : "Your closet starts here."
-        }</h2><p>${
-          pool().length
-            ? "Chosen items stay pinned. Suggestions change only unpinned items."
-            : "No clothes added yet. Add a clothing item or accessory."
-        }</p></div>`
-    }</div><p>${
+            ? "Tap a piece to dress the mannequin, or choose Suggest a look. Chosen pieces stay pinned."
+            : "No personal clothes added yet. Choose Sample wardrobe to explore, or add an item."
+        }</p>`
+        : ""
+    }<p>${
       draft.readOnly
         ? `Saved${
           draft.sourceDate
             ? " for " + esc(dateLabel(draft.sourceDate))
             : " · date not recorded"
         }`
+        : source === "sample"
+        ? "Sample preview · " + draft.pins.length + " pinned"
         : draft.dirty
         ? "Unsaved changes · " + draft.pins.length + " pinned"
         : "Unsaved draft"
     }${
-      partial && draft.items.length && !draft.readOnly
+      partial && draft.items.length && !draft.readOnly && source === "owned"
         ? " · Partial look; you can save it as it is."
         : ""
     }</p>${
@@ -782,7 +807,11 @@
       ).join("")
     }</section>${
       !draft.readOnly
-        ? '<p class="editorial-preview-note">Unsaved drafts stay for this session only. Save before refreshing or closing.</p>'
+        ? `<p class="editorial-preview-note">${
+          source === "sample"
+            ? "Sample selections stay for this session only. They do not change your wardrobe."
+            : "Unsaved drafts stay for this session only. Save before refreshing or closing."
+        }</p>`
         : ""
     }</section>${wardrobeOpen ? wardrobePane() : ""}</div>`;
   }
@@ -827,6 +856,7 @@
     remember();
     planningDate = date;
     source = targetSource;
+    sourceChosen = true;
     draft = {
       ...fresh(),
       items: clone(look.items),
@@ -853,6 +883,7 @@
     }
     const d = target.dataset;
     const handled = [
+      "wardrobeSource",
       "selectPiece",
       "pinPiece",
       "removePiece",
@@ -891,6 +922,10 @@
       $("#modal").close();
       openSaved(d.discardOpen, true);
       return;
+    }
+    if (d.wardrobeSource) {
+      chooseSource(d.wardrobeSource);
+      after = `[data-wardrobe-source="${source}"]`;
     }
     if (d.selectPiece) {
       selectItem(d.selectPiece);
@@ -1089,6 +1124,7 @@
     draft = fresh();
     planningDate = localDateKey();
     source = "owned";
+    sourceChosen = false;
     pendingReplacement = null;
     refineOpen = false;
     notice = "";

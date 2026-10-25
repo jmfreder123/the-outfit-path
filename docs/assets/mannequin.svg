@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 540" fill="none">
+  <title>Neutral outfit planning mannequin</title>
+  <g fill="#bcb7ad" stroke="#d7d0c4" stroke-width="1.5" stroke-linejoin="round">
+    <ellipse cx="160" cy="47" rx="24" ry="31"/>
+    <path d="M149 77h22v25h-22z"/>
+    <path d="M149 96c-12 3-27 5-40 13l9 82 8 66h68l8-66 9-82c-13-8-28-10-40-13z"/>
+    <path d="M109 109c-10 5-13 19-18 37L72 234l-9 40c-3 12 1 20 8 21 8 0 11-7 13-16l8-38 27-78z"/>
+    <path d="M211 109c10 5 13 19 18 37l19 88 9 40c3 12-1 20-8 21-8 0-11-7-13-16l-8-38-27-78z"/>
+    <path d="M126 257c-5 21-6 35-3 59l8 91 4 91h20l5-169 5 169h20l4-91 8-91c3-24 2-38-3-59z"/>
+    <path d="M135 498h20l-2 19h-34c-3-7 5-15 16-19zm30 0h20c11 4 19 12 16 19h-34z"/>
+  </g>
+  <ellipse cx="160" cy="529" rx="83" ry="5" fill="#000" opacity=".16"/>
+</svg>
