@@ -845,7 +845,7 @@
               draft.answers.stylePreference === id ? "selected" : ""
             }>${label}</option>`
           ).join("")
-        }</select></label><p>Every style is open to everyone. Used for your next suggestion.</p><button data-refine>Done</button></section>`
+        }</select></label><p>Every style is open to everyone. Used for your next suggestion.</p><button data-refine>Done</button><button data-view="learn">Style learning</button></section>`
         : ""
     }</div></div>`;
   }
@@ -935,7 +935,7 @@
     }<p class="editorial-sample-note">${
       source === "sample"
         ? "Fictional samples are separate from your closet. Sample previews cannot be saved as owned looks."
-        : "Only your available pieces are suggested. Existing starter records are preserved in My Closet."
+        : "Only your available pieces are suggested. Existing starter records are preserved in Closet."
     }</p></section>`;
   }
   function renderSimpleBuilder() {

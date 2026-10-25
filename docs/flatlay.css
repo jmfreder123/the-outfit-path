@@ -17,6 +17,11 @@
   border-radius: 18px;
   background: radial-gradient(120% 90% at 40% 30%, #2f2f2c 0%, #232321 55%, #1c1c1a 100%);
   overflow: hidden;
+  /* Keep the pieces' stacking inside the board so popovers such as Refine
+     open above it. */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
 }
 
 .flatlay-stage {
