@@ -1,217 +1,290 @@
-const fs = require('node:fs');
-const vm = require('node:vm');
-const assert = require('node:assert/strict');
-
-const elements = new Map();
-const listeners = new Map();
-let pointTarget = null;
-const element = key => elements.get(key) || elements.set(key, {
-  innerHTML: '',
-  textContent: '',
-  classList: { add() {}, remove() {}, toggle() {} },
-  addEventListener() {},
-  focus() {},
-  showModal() { this.open = true; },
-  close() { this.open = false; }
-}).get(key);
-
+const fs = require("node:fs"),
+  vm = require("node:vm"),
+  assert = require("node:assert/strict");
+const elements = new Map(), listeners = new Map();
+let writes = 0, fail = false;
+const el = (k) =>
+  elements.get(k) ||
+  elements.set(k, {
+    innerHTML: "",
+    textContent: "",
+    open: false,
+    classList: { add() {}, toggle() {}, remove() {} },
+    focus() {},
+    showModal() {
+      this.open = true;
+    },
+    close() {
+      this.open = false;
+    },
+  }).get(k);
 const sandbox = {
   console,
-  crypto: require('node:crypto').webcrypto,
+  crypto: require("node:crypto").webcrypto,
+  queueMicrotask,
+  Date,
   setTimeout,
   clearTimeout,
-  localStorage: { getItem() { return null; }, setItem() {} },
-  document: {
-    body: { classList: { add() {}, remove() {} } },
-    activeElement: null,
-    querySelector: element,
-    querySelectorAll() { return []; },
-    elementFromPoint() { return pointTarget; },
-    addEventListener(type, handler, options) {
-      const rows = listeners.get(type) || [];
-      rows.push({handler, capture: options === true || options?.capture === true});
-      listeners.set(type, rows);
+  FormData: class {
+    constructor(form) {
+      this.form = form;
+    }
+    get() {
+      return this.form.value;
     }
   },
-  window: {}
+  localStorage: {
+    getItem() {
+      return null;
+    },
+    setItem() {
+      if (fail) throw Error("full");
+      writes++;
+    },
+  },
+  window: { addEventListener() {} },
+  document: {
+    body: { classList: { add() {} } },
+    querySelector: el,
+    querySelectorAll() {
+      return [];
+    },
+    addEventListener(t, h, o) {
+      const rows = listeners.get(t) || [];
+      rows.push({ h, c: o === true });
+      listeners.set(t, rows);
+    },
+  },
 };
-
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync('docs/app.js', 'utf8'), sandbox);
-vm.runInContext(fs.readFileSync('docs/editorial.js', 'utf8'), sandbox);
-const run = code => vm.runInContext(code, sandbox);
-const dataKey = name => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-const eventTarget = (dataset, options = {}) => ({
-  dataset,
-  disabled: false,
-  classList: {add() {}, remove() {}},
-  getAttribute(name) { return name === 'draggable' && dataset.outfitItem ? 'true' : null; },
-  closest(selector) {
-    if (selector === 'button') return options.button === false ? null : this;
-    if (selector === '[data-outfit-item][draggable="true"]') return dataset.outfitItem ? this : null;
-    return selector.split(',').some(part => {
-      const trimmed = part.trim();
-      const action = /^\[data-action="([^"]+)"\]$/.exec(trimmed);
-      if (action) return dataset.action === action[1];
-      const match = /^\[data-([a-z-]+)\]$/.exec(trimmed);
-      return match ? dataset[dataKey(match[1])] !== undefined : false;
-    }) ? this : null;
+vm.runInContext(fs.readFileSync("docs/app.js", "utf8"), sandbox);
+// Test-only observation interface; no testing hooks ship in the application.
+let src = fs.readFileSync("docs/editorial.js", "utf8");
+src = src.replace(
+  /\}\)\(\);\s*$/,
+  `window.qa={state:()=>clone({draft,planningDate,source,pendingReplacement}),select:selectItem,suggest,nav:navigateDate,source:s=>{remember();source=s;draft=clone(drafts.get(draftKey())||fresh());},open:openSaved,reset:resetSession,date:localDateKey,shift:shiftDate};})();`,
+);
+vm.runInContext(src, sandbox);
+const run = (s) => vm.runInContext(s, sandbox),
+  state = () => JSON.parse(JSON.stringify(sandbox.window.qa.state()));
+function click(dataset) {
+  let stop = false;
+  const target = {
+    dataset,
+    closest(s) {
+      return s === "button" ? this : null;
+    },
+  };
+  const e = {
+    target,
+    preventDefault() {},
+    stopImmediatePropagation() {
+      stop = true;
+    },
+  };
+  const rows = listeners.get("click");
+  for (const r of [...rows.filter((r) => r.c), ...rows.filter((r) => !r.c)]) {
+    if (stop) break;
+    r.h(e);
   }
-});
-const dispatch = (type, target, extra = {}) => {
-  let stopped = false;
-  const event = {target, preventDefault() {}, stopImmediatePropagation() { stopped = true; }, ...extra};
-  const rows = listeners.get(type) || [];
-  for (const row of [...rows.filter(row => row.capture), ...rows.filter(row => !row.capture)]) {
-    if (stopped) break;
-    row.handler(event);
+}
+function change(name, value) {
+  for (const r of listeners.get("change") || []) {
+    r.h({ target: { name, value } });
   }
-  return event;
-};
-
-assert.equal(run('data.items.length'), 42, 'redesign must not add samples to stored closet data');
-assert(run('renderBuilder().includes("Your wardrobe. Your rules.")'));
-assert(run("renderBuilder().includes('name=\"editorial-occasion\"')"));
-assert(run("renderBuilder().includes('name=\"editorial-style\"')"));
-assert(run('renderBuilder().includes("Every style is open to everyone.")'));
-assert(!run('renderBuilder().includes("Men")'));
-assert(!run('renderBuilder().includes("Women")'));
-const visiblePieceIds = html => [...html.matchAll(/data-(?:edit|demo-add)="([^"]+)"/g)].map(match => match[1]);
-const baselinePieceIds = visiblePieceIds(run('renderBuilder()'));
-assert.deepEqual(baselinePieceIds, ['demo-emerald-slip-dress', 'demo-patterned-midi-skirt', 'demo-rust-blazer', 'demo-cobalt-hoodie', 'demo-indigo-jeans', 'demo-black-sport-leggings', 'demo-off-white-chunky-sneakers', 'starter-20', 'demo-black-crossbody']);
-for (const preference of ['none', 'feminine', 'masculine', 'androgynous']) {
-  run(`answers.stylePreference='${preference}'`);
-  assert.deepEqual(visiblePieceIds(run('renderBuilder()')), baselinePieceIds, `${preference} must not hide wardrobe pieces`);
 }
-run("data.items.push({id:'user-fixture',name:'User fixture',type:'top',color:'blue',hex:'#6e8494',style:'relaxed',season:'all',available:true,notes:''})");
-assert.equal(visiblePieceIds(run('renderBuilder()'))[0], 'user-fixture', 'user-owned pieces should appear before demo samples');
-run("data.items.pop()");
-run("answers.stylePreference='androgynous'");
-assert(run("Object.keys(features([data.items[0]],answers)).some(key=>key.startsWith('context:aesthetic:androgynous:'))"));
-
-const editorialSource = fs.readFileSync('docs/editorial.js', 'utf8');
-for (const mismatchedStarter of ['starter-13', 'starter-25', 'starter-38']) {
-  assert(!new RegExp(`['"]${mismatchedStarter}['"]\\s*:`).test(editorialSource), mismatchedStarter + ' must not claim a mismatched raster asset');
+function submit(name) {
+  let stop = false;
+  for (
+    const r of [
+      ...listeners.get("submit").filter((r) => r.c),
+      ...listeners.get("submit").filter((r) => !r.c),
+    ]
+  ) {
+    if (stop) break;
+    r.h({
+      target: { id: "simple-look-form", value: name },
+      preventDefault() {},
+      stopImmediatePropagation() {
+        stop = true;
+      },
+    });
+  }
 }
-assert(run('renderBuilder().includes("Add sample to closet")'));
-assert(run('renderBuilder().includes("type=\\"image/webp\\"")'));
-
-const directionSets = {};
-for (const [theme, occasion] of [['business','work'],['business-casual','work'],['everyday','everyday'],['evening','date'],['sporty','weekend'],['streetwear','weekend']]) {
-  run(`answers={occasionTheme:'${theme}',occasion:'${occasion}',stylePreference:'none'}`);
-  directionSets[theme] = run('previewItems().map(item=>item.id).join(",")');
+assert.equal(run("data.items.length"), 42);
+assert.equal(state().draft.items.length, 0);
+assert(run('renderBuilder().includes("My wardrobe")'));
+assert(!run('renderBuilder().includes("draggable")'));
+assert(!run('renderBuilder().includes("data-outfit-slot")'));
+assert(!run('renderBuilder().includes("Choose myself")'));
+run("data.items[0].name='User customized skirt'");
+assert(run('renderBuilder().includes("User customized skirt")'));
+run("data=initial()");
+// Explicit sample source is separate and never imported.
+change("simple-source", "sample");
+click({ selectPiece: "demo-emerald-slip-dress" });
+click({ suggest: "" });
+assert(state().draft.items.some((i) => i.type === "dress"));
+assert(
+  state().draft.items.some((i) =>
+    ["sneakers", "boots", "flats"].includes(i.type)
+  ),
+);
+assert.equal(run("data.items.length"), 42);
+assert.equal(writes, 0);
+assert(run('renderBuilder().includes("data-save-draft disabled")'));
+change("simple-source", "owned");
+assert.equal(state().draft.items.length, 0);
+run(
+  `data.items=[{...seed()[15],id:'top-a'},{...seed()[13],id:'top-b'},{...seed()[6],id:'pants-a'},{...seed()[5],id:'pants-b'},{...seed()[8],id:'dress-a'},{...seed()[11],id:'dress-b'},{...seed()[20],id:'shoe-a'},{...seed()[27],id:'shoe-b'},{...seed()[33],id:'layer-a'},{...seed()[36],id:'bag-a'},{...seed()[39],id:'jewelry-a'}]`,
+);
+click({ selectPiece: "top-a" });
+assert.deepEqual(state().draft.pins, ["top-a"]);
+click({ selectPiece: "top-a" });
+assert.equal(state().draft.items.length, 1);
+click({ suggest: "" });
+assert(state().draft.items.some((i) => i.id === "top-a"));
+assert(state().draft.items.some((i) => i.type === "pants"));
+assert(!state().draft.items.some((i) => i.type === "dress"));
+click({ pinPiece: "top-a" });
+assert(state().draft.items.some((i) => i.id === "top-a"));
+assert(!state().draft.pins.includes("top-a"));
+click({ suggest: "" });
+assert(state().draft.items.some((i) => i.id === "top-b"));
+click({ selectPiece: "top-b" });
+click({ selectPiece: "dress-a" });
+assert(state().pendingReplacement);
+const before = state().draft;
+click({ cancelReplace: "" });
+assert.deepEqual(state().draft, before);
+click({ selectPiece: "dress-a" });
+click({ confirmReplace: "" });
+assert(
+  !state().draft.items.some((i) => i.type === "top" || i.type === "pants"),
+);
+assert(state().draft.pins.includes("dress-a"));
+click({ selectPiece: "pants-a" });
+assert(state().pendingReplacement);
+click({ confirmReplace: "" });
+assert(!state().draft.items.some((i) => i.type === "dress"));
+assert(state().draft.items.some((i) => i.id === "pants-a"));
+click({ removePiece: "pants-a" });
+assert(!state().draft.items.some((i) => i.id === "pants-a"));
+assert.equal(run("data.items.length"), 11);
+const ids = () => state().draft.items.map((i) => i.id);
+const old = ids();
+for (const style of ["feminine", "masculine", "androgynous", "none"]) {
+  change("simple-style", style);
+  assert.deepEqual(ids(), old);
 }
-assert(new Set(Object.values(directionSets)).size >= 5, 'occasion controls should produce visibly distinct demo suggestions');
-
-run(`data={version:1,looks:[],ratings:[],name:'',learning:true,items:[
-  {id:'user-classic-pants',name:'Classic pants',type:'pants',color:'black',hex:'#343634',style:'classic',season:'all',available:true,notes:''},
-  {id:'user-relaxed-pants',name:'Relaxed pants',type:'pants',color:'blue',hex:'#6e8494',style:'relaxed',season:'all',available:true,notes:''},
-  {id:'user-classic-top',name:'Classic top',type:'top',color:'white',hex:'#f5f1e7',style:'classic',season:'all',available:true,notes:''},
-  {id:'user-romantic-top',name:'Romantic top',type:'top',color:'pink',hex:'#c98989',style:'romantic',season:'all',available:true,notes:''},
-  {id:'user-relaxed-top',name:'Relaxed top',type:'top',color:'blue',hex:'#6e8494',style:'relaxed',season:'all',available:true,notes:''},
-  {id:'user-boots',name:'Boots',type:'boots',color:'black',hex:'#343634',style:'classic',season:'all',available:true,notes:''},
-  {id:'user-sneakers',name:'Sneakers',type:'sneakers',color:'white',hex:'#f5f1e7',style:'relaxed',season:'all',available:true,notes:''},
-  {id:'user-blazer',name:'Blazer',type:'layer',color:'black',hex:'#343634',style:'classic',season:'all',available:true,notes:''},
-  {id:'user-bag',name:'Bag',type:'bag',color:'black',hex:'#343634',style:'classic',season:'all',available:true,notes:''}
-]}`);
-run("answers={occasionTheme:'business',occasion:'work',stylePreference:'none'}");
-const businessOwned = run('previewItems().map(item=>item.id)');
-run("answers={occasionTheme:'everyday',occasion:'everyday',stylePreference:'none'}");
-const everydayOwned = run('previewItems().map(item=>item.id)');
-assert(businessOwned.includes('user-classic-pants') && businessOwned.includes('user-classic-top') && businessOwned.includes('user-boots'));
-assert(everydayOwned.includes('user-relaxed-pants') && everydayOwned.includes('user-relaxed-top') && everydayOwned.includes('user-sneakers'));
-assert.notDeepEqual(businessOwned, everydayOwned, 'occasion should change an owned-closet suggestion when suitable pieces exist');
-
-run("answers={occasionTheme:'business-casual',occasion:'work',stylePreference:'feminine'}");
-const feminineTop = run("previewItems().find(item=>item.type==='top')?.id");
-run("answers={occasionTheme:'business-casual',occasion:'work',stylePreference:'masculine'}");
-const masculineTop = run("previewItems().find(item=>item.type==='top')?.id");
-assert.equal(feminineTop, 'user-romantic-top');
-assert.equal(masculineTop, 'user-classic-top');
-
-run("photoCache.set('photo-fixture','data:image/jpeg;base64,AA==')");
-const photoBoard = run("board([{id:'user-photo',name:'Photo item',type:'top',color:'blue',hex:'#6e8494',style:'relaxed',season:'all',available:true,notes:'',photoId:'photo-fixture'}])");
-assert(photoBoard.includes('data-photo="photo-fixture"') && photoBoard.includes('garment-photo'), 'right-side composition must preserve user-photo rendering');
-run('data=initial();answers={}');
-
-const interactionMarkup = run('renderBuilder()');
-assert(interactionMarkup.includes('Choose myself') && interactionMarkup.includes('Suggest a look') && interactionMarkup.includes('Mix & match'));
-assert(interactionMarkup.includes('name="planning-date"') && interactionMarkup.includes('data-outfit-slot="shape"'));
-assert(interactionMarkup.includes('data-close-wardrobe'));
-
-dispatch('click', eventTarget({editorialMode:'manual'}));
-dispatch('click', eventTarget({useItem:'starter-6'}));
-assert.equal(run('previewItems().map(item=>item.id).join(",")'), 'starter-6', 'manual touch/keyboard action should place only the chosen piece');
-dispatch('click', eventTarget({removeSlot:'shape'}));
-assert.equal(run('previewItems().map(item=>item.id).join(",")'), '', 'manual remove should empty the chosen slot');
-
-const dropTarget = eventTarget({outfitSlot:'shape'});
-dispatch('drop', dropTarget, {dataTransfer:{getData(){return 'starter-6';}}});
-assert.equal(run('previewItems().map(item=>item.id).join(",")'), 'starter-6', 'drop should place a compatible closet piece');
-dispatch('drop', eventTarget({outfitSlot:'shoes'}), {dataTransfer:{getData(){return 'starter-15';}}});
-assert(run('renderBuilder().includes("does not fit the shoes slot")'), 'invalid drop targets should explain the mismatch');
-
-const pointerCard = eventTarget({outfitItem:'starter-15'}, {button:false});
-pointTarget = eventTarget({outfitSlot:'top'}, {button:false});
-dispatch('pointerdown', pointerCard, {pointerType:'mouse', clientX:10, clientY:10});
-dispatch('pointerup', pointTarget, {pointerType:'mouse', clientX:20, clientY:20});
-assert(run('previewItems().some(item=>item.id==="starter-15")'), 'pointer drag fallback should place a compatible closet piece');
-pointTarget = null;
-
-dispatch('click', eventTarget({editorialMode:'hybrid'}));
-dispatch('click', eventTarget({useItem:'starter-15'}));
-const hybridBefore = run('previewItems().map(item=>item.id)');
-dispatch('change', {name:'editorial-occasion', value:'evening'});
-const hybridAfter = run('previewItems().map(item=>item.id)');
-assert(hybridBefore.includes('starter-15') && hybridAfter.includes('starter-15'), 'hybrid changes must preserve chosen locked pieces');
-
-run("answers={occasionTheme:'sporty',occasion:'weekend',stylePreference:'feminine'}");
-dispatch('click', eventTarget({editorialMode:'suggest'}));
-const sportyBefore = run('previewItems().map(item=>item.id).join(",")');
-dispatch('change', {name:'editorial-style', value:'masculine'});
-const sportyAfter = run('previewItems().map(item=>item.id).join(",")');
-assert.equal(sportyBefore, sportyAfter, 'limited Sporty source should not fabricate a different outfit');
-assert(run('renderBuilder().includes("No different suitable Masculine pieces are available")'), 'unchanged style direction should be explained');
-
-dispatch('click', eventTarget({closeWardrobe:true}));
-assert(run('renderBuilder().includes("wardrobe-closed")') && run('renderBuilder().includes("Open wardrobe")'));
-dispatch('keydown', {closest(){return null;}}, {key:'Escape'});
-dispatch('click', eventTarget({openWardrobe:true}));
-assert(!run('renderBuilder().includes("wardrobe-closed")'));
-
-const initialDate = /name="planning-date" value="([^"]+)"/.exec(run('renderBuilder()'))[1];
-const lookCountBeforeDateNavigation = run('data.looks.length');
-dispatch('click', eventTarget({dateShift:'-1'}));
-const previousDate = /name="planning-date" value="([^"]+)"/.exec(run('renderBuilder()'))[1];
-assert.notEqual(previousDate, initialDate, 'previous-day navigation should use another local calendar date');
-assert.equal(run('data.looks.length'), lookCountBeforeDateNavigation, 'date navigation must not save or overwrite looks');
-dispatch('click', eventTarget({dateToday:true}));
-assert.equal(/name="planning-date" value="([^"]+)"/.exec(run('renderBuilder()'))[1], initialDate);
-
-const savedAnswers = {shape:'pants',shoes:'boots',occasion:'work',weather:'mild',mood:'classic',finish:'minimal'};
-run(`data.looks=[
-  {id:'dated-1',items:[data.items[6],data.items[15],data.items[20]],answers:${JSON.stringify(savedAnswers)},created:'2026-10-24T12:00:00.000Z',plannedDate:'${initialDate}',rating:null,name:'First dated look'},
-  {id:'dated-2',items:[data.items[6],data.items[15],data.items[20]],answers:${JSON.stringify(savedAnswers)},created:'2026-10-24T13:00:00.000Z',plannedDate:'${initialDate}',rating:null,name:'Second dated look'},
-  {id:'legacy-undated',items:[data.items[6],data.items[15],data.items[20]],answers:${JSON.stringify(savedAnswers)},created:'2026-09-01T12:00:00.000Z',rating:null,name:'Undated legacy look'}
-]`);
-const datedLookbook = run('renderLooks()');
-assert(datedLookbook.includes('2 saved looks') && datedLookbook.includes('Earlier saved looks'));
-assert(datedLookbook.includes('First dated look') && datedLookbook.includes('Second dated look') && datedLookbook.includes('Undated legacy look'));
-dispatch('click', eventTarget({dateShift:'1'}));
-const nextDayLookbook = run('renderLooks()');
-assert(nextDayLookbook.includes('No saved looks for this day') && nextDayLookbook.includes('Undated legacy look'), 'legacy undated looks must remain visible without guessed dates');
-run('data=initial();answers={}');
-
-assert(/draggable="\$\{item\.available\}"/.test(editorialSource), 'closet cards should expose native drag sources');
-assert(editorialSource.includes("document.addEventListener('drop'"));
-assert(!editorialSource.includes("toISOString().slice(0, 10)"), 'planner dates must not be derived from UTC slicing');
-assert(editorialSource.includes('resetEditorialSessionState') && editorialSource.includes('outfitPathCloud.switchScope'), 'account switches must clear unsaved manual/hybrid state');
-
-for (const asset of ['blazer.png', 'watch.png', 'tote.png', 'cream-knit.png', 'charcoal-trousers.png', 'white-shirt.png', 'loafers.png', 'emerald-slip-dress.png', 'patterned-midi-skirt.png', 'rust-blazer.png', 'cobalt-hoodie.png', 'indigo-jeans.png', 'sport-leggings.png', 'chunky-sneakers.png', 'ankle-boots.png', 'crossbody-bag.png']) {
-  const pngSize = fs.statSync('docs/assets/design3/' + asset).size;
-  const webpSize = fs.statSync('docs/assets/design3/' + asset.replace(/\.png$/, '.webp')).size;
-  assert(pngSize > 1000, asset + ' should be a non-empty local asset');
-  assert(webpSize > 1000 && webpSize < pngSize, asset + ' should have a smaller WebP delivery copy');
+for (
+  const occasion of [
+    "business",
+    "business-casual",
+    "everyday",
+    "evening",
+    "sporty",
+    "streetwear",
+  ]
+) {
+  change("simple-occasion", occasion);
+  assert.deepEqual(ids(), old);
 }
-
-console.log('PASS: editorial shell, truthful style feedback, manual/drag/hybrid controls, panel close, local-date navigation, rich imagery, opt-in demo separation, and local asset manifest.');
+// Each style reaches ranking; never gates access or writes preferences durably.
+const scores = [];
+for (const style of ["feminine", "masculine", "androgynous"]) {
+  scores.push(
+    run(
+      `pieceScore(data.items.find(i=>i.id==='dress-b'),{...answers,stylePreference:'${style}'})`,
+    ),
+  );
+}
+assert(new Set(scores).size > 1);
+const dayA = state().planningDate, draftA = state().draft;
+click({ day: "1" });
+assert.equal(state().draft.items.length, 0);
+click({ selectPiece: "shoe-a" });
+const dayB = state().planningDate;
+click({ day: "-1" });
+assert.deepEqual(state().draft, draftA);
+click({ day: "1" });
+assert.deepEqual(ids(), ["shoe-a"]);
+assert.equal(writes, 0);
+// Partial save, rollback on failure, and duplicate submissions.
+click({ saveDraft: "" });
+fail = true;
+submit("Partial fixture");
+assert.equal(run("data.looks.length"), 0);
+assert(state().draft.dirty);
+fail = false;
+submit("Partial fixture");
+assert.equal(run("data.looks.length"), 1);
+assert(state().draft.readOnly);
+submit("Duplicate");
+assert.equal(run("data.looks.length"), 1);
+const saved = run("data.looks[0].id");
+click({ selectPiece: "top-a" });
+assert.deepEqual(ids(), ["shoe-a"]);
+click({ editSaved: "" });
+click({ selectPiece: "top-a" });
+assert.equal(run("data.looks[0].items.length"), 1);
+click({ saveDraft: "" });
+submit("Updated fixture");
+assert.equal(run("data.looks.length"), 1);
+assert.equal(run("data.looks[0].id"), saved);
+assert.equal(run("data.looks[0].items.length"), 2);
+assert.equal(run("data.looks[0].plannedDate"), dayB);
+click({ newDraft: "" });
+click({ selectPiece: "shoe-b" });
+click({ saveDraft: "" });
+submit("Second look same date");
+assert.equal(run("data.looks.length"), 2);
+assert.equal(run("data.looks[1].plannedDate"), dayB);
+assert.notEqual(run("data.looks[1].id"), saved);
+click({ newDraft: "" });
+click({ selectPiece: "top-a" });
+click({ saveDraft: "" });
+click({ day: "1" });
+submit("Stale modal");
+assert.equal(
+  run("data.looks.length"),
+  2,
+  "stale save modal cannot save a different day",
+);
+click({ day: "-1" });
+click({ openlook: saved });
+assert(el("#modal-body").innerHTML.includes("Keep your unsaved draft"));
+click({ discardOpen: saved });
+assert(state().draft.readOnly);
+// Legacy undated data remains undated through explicit edit and update.
+run(`data.looks.push({...data.looks[0],id:'legacy',plannedDate:undefined})`);
+click({ openlook: "legacy" });
+assert(state().draft.readOnly);
+click({ editSaved: "" });
+click({ saveDraft: "" });
+submit("Undated");
+assert.equal(run('data.looks.find(l=>l.id==="legacy").plannedDate'), undefined);
+assert.equal(sandbox.window.qa.shift("2026-12-31", 1), "2027-01-01");
+assert.equal(sandbox.window.qa.shift("2026-03-08", 1), "2026-03-09");
+// Photo rendering uses accepted user photo, never a catalog substitution.
+run(`photoCache.set('photo-fixture','data:image/png;base64,fixture')`);
+assert(
+  run(
+    `garmentArt({...data.items[0],photoId:'photo-fixture'}).includes('data:image/png;base64,fixture')`,
+  ),
+);
+assert(run(`garmentArt(data.items[0]).includes('Image unavailable')`));
+assert(
+  run(
+    `garmentArt({...seed()[20],color:'pink',hex:'#c98989'}).includes('Image unavailable')`,
+  ),
+  "modified real item must not borrow mismatching catalog photo",
+);
+const savedData = run("JSON.stringify(data)");
+sandbox.window.qa.reset();
+assert.equal(state().draft.items.length, 0);
+assert.equal(run("JSON.stringify(data)"), savedData);
+assert(!src.includes("addEventListener('drag"));
+console.log(
+  "PASS: tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
+);

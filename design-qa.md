@@ -1,5 +1,23 @@
 # Genderless Redesign QA
 
+## Current pass — tap-first builder, 2026-10-25
+
+This section supersedes the older mode/drag/six-step observations below. Those sections remain as historical evidence, not the current interaction contract.
+
+References: Library `libfile_83fe9c7e2b6081919e6a5db22e608a31` and `libfile_f356243944fc8191910b895cd6503620` were read in full. Mobile pack `libfile_0223cc664ce8819197644b1486bf5dd1` materialized with Library metadata into `../simple-builder-references/`; its README was read and actual empty, pinned, saved and confirmation PNGs were inspected. No Figma call was made.
+
+Implemented: one composition canvas; button cards add and pin idempotently; distinct Pin/Unpin/Remove; explicit confirmation before replacing pinned conflicts; Suggest fills compatible missing roles while retaining pins; Occasion and collapsed Refine/Style affect the next explicit Suggest. Manual/AI/hybrid mode panels, six-step workflow and drag/drop targets/handlers are removed from the builder. Suggestions are synchronous local rules, so no asynchronous suggestion can overwrite a later action. Save dialogs bind to the exact draft, date, source and account and reject stale submissions.
+
+Drafts are held in session memory by date and explicit wardrobe source, and reset on account/copy/replace transitions. Date navigation does not write data. Save supports partial looks, rollback on storage failure, update of only the explicitly edited saved ID, and a fresh new look on the same date. Saved looks open read-only with Edit; undated legacy records remain undated. Opening a save over a dirty session draft requires a discard/keep choice. Unsaved session drafts warn before refresh/close.
+
+My wardrobe and fictional sample previews use separate pools. Untouched legacy starter records remain intact in My Closet, but do not imply ownership in the builder. Customized starter records and deliberately added samples remain usable. Sample previews are not saved into owned Lookbook records. All 16 approved photographic assets remain available in the sample pool (four exact starter matches and twelve separate demos). A changed item never borrows a mismatching sample photo; actual user photos take priority. Missing/broken images use a named Image unavailable placeholder rather than flat garment substitutes. No image or wardrobe migration occurred.
+
+Browser evidence: in-app browser, isolated loopback fixture at `127.0.0.1:4174/fixture.html`, synthetic data only; never the user's account or real wardrobe. Desktop/default 1280px and responsive 390px/320px layouts inspected directly with screenshots and DOM geometry. Actual button click/keyboard Enter selected the emerald dress; Suggest retained its pin and added blazer/boots/bag; skirt selection showed the named replacement confirmation; Cancel left the dress; next-day/back restored the exact composition with zero saved looks; explicit naming/Save produced a read-only look with Edit and disabled selection. Refine retained Androgynous and did not rebuild the outfit until Suggest. Mobile screenshot inspection caught inherited heights; fixed canvas now contains all images and action bar follows its bottom. DOM image checks confirmed all four displayed cutouts loaded. No horizontal overflow at 390px or 320px. This is browser click/keyboard testing at mobile dimensions, not a physical touch-device test.
+
+Automated: all eight `test*.cjs` suites pass under Deno, with existing age/auth/invitation/MFA/account/photo/cloud/privacy checks retained. Updated redesign scenarios cover selection idempotence, pins, unpin retention, removal, base conflicts/cancel, pinned completion, styles reaching ranking, preference changes leaving current items intact, source separation/no writes, customized starter ownership, date round trips, partial save failure/retry, duplicate submit, exact update, multiple looks/day, dirty-draft conflict, stale form/date rejection, legacy undated retention, date boundaries, photo priority, mismatched-photo fallback, and session reset. Deno static checks and `git diff --check` pass.
+
+Not run: physical-device touch; live account switching/login/MFA/RLS against Supabase; formal exported-file pixel comparison. Screenshot API captures were directly inspected, but no supported local screenshot export path was exposed. The local app preview remains `http://127.0.0.1:4173/`; authentication/18+ gates are unchanged. Production backend MFA enforcement remains the pre-existing outstanding user action. No push/deployment/account/security/DNS changes.
+
 ## Reference and implementation
 
 - Approved reference: `../library-redesign/extracted/approved-genderless-desktop-reference.png`
