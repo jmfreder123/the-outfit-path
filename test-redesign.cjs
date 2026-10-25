@@ -62,17 +62,19 @@ vm.runInContext(fs.readFileSync("docs/app.js", "utf8"), sandbox);
 let src = fs.readFileSync("docs/editorial.js", "utf8");
 src = src.replace(
   /\}\)\(\);\s*$/,
-  `window.qa={state:()=>clone({draft,planningDate,source,pendingReplacement}),select:selectItem,suggest,nav:navigateDate,source:s=>{remember();source=s;draft=clone(drafts.get(draftKey())||fresh());},open:openSaved,reset:resetSession,date:localDateKey,shift:shiftDate};})();`,
+  `window.qa={state:()=>clone({draft,planningDate,source,pendingReplacement,boardMenu,notice}),sample:(id)=>clone(samples().find((i)=>i.id===id)),layout:(items)=>flatLayout(items).map((p)=>({id:p.item.id,x:p.x,y:p.y,w:p.s.w,h:p.s.h})),swap:swapItem,select:selectItem,suggest,nav:navigateDate,source:s=>{remember();source=s;draft=clone(drafts.get(draftKey())||fresh());},open:openSaved,reset:resetSession,date:localDateKey,shift:shiftDate};})();`,
 );
 vm.runInContext(src, sandbox);
 const run = (s) => vm.runInContext(s, sandbox),
   state = () => JSON.parse(JSON.stringify(sandbox.window.qa.state()));
-function click(dataset) {
+// inside: classes of ancestors the clicked button sits in, e.g. ".flatlay-menu".
+function click(dataset, inside = []) {
   let stop = false;
   const target = {
     dataset,
     closest(s) {
-      return s === "button" ? this : null;
+      if (s === "button") return this;
+      return s.split(",").some((x) => inside.includes(x.trim())) ? this : null;
     },
   };
   const e = {
@@ -120,7 +122,8 @@ assert.equal(
   "empty owned wardrobe immediately discovers samples",
 );
 assert(run('renderBuilder().includes("Sample wardrobe <span>16</span>")'));
-assert(run('renderBuilder().includes("Neutral outfit planning mannequin")'));
+assert(!run('renderBuilder().includes("mannequin.svg")'), "rejected mannequin is not shown");
+assert(run('renderBuilder().includes("Your outfit will appear here.")'));
 assert.equal(
   (run("renderBuilder()").match(/data-select-piece=/g) || []).length,
   16,
@@ -304,13 +307,89 @@ assert.equal(
   "existing personal pieces remain the default",
 );
 assert.equal(run("JSON.stringify(data)"), savedData);
-assert(fs.existsSync("docs/assets/mannequin.svg"));
 for (
   const path of [...src.matchAll(/assets\/design3\/[a-z-]+\.png/g)].map((m) =>
     m[0]
   )
 ) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
+// Flat-lay board: body order, real-world scale, pin badges, piece menu, swap.
+{
+  const L = sandbox.window.qa.layout(run(`[
+    window.qa.sample('demo-cream-merino-knit'),
+    window.qa.sample('demo-indigo-jeans'),
+    window.qa.sample('demo-rust-blazer'),
+    window.qa.sample('demo-brown-leather-loafers'),
+    window.qa.sample('demo-black-crossbody'),
+  ]`));
+  const at = (id) => L.find((p) => p.id === id);
+  assert.equal(L.length, 5);
+  assert(at("demo-cream-merino-knit").y < at("demo-indigo-jeans").y, "top above bottom");
+  assert(at("demo-brown-leather-loafers").y > at("demo-cream-merino-knit").y, "shoes below top");
+  assert(at("demo-rust-blazer").x < at("demo-cream-merino-knit").x, "layer set to the left");
+  assert(at("demo-black-crossbody").x > at("demo-cream-merino-knit").x, "bag set to the right");
+  const skirt = sandbox.window.qa.layout(run("[window.qa.sample('demo-patterned-midi-skirt')]"))[0];
+  assert(at("demo-indigo-jeans").h > skirt.h + 15, "jeans drawn longer than a midi skirt");
+  const dressOnly = sandbox.window.qa.layout(run("[window.qa.sample('demo-emerald-slip-dress'),window.qa.sample('demo-off-white-chunky-sneakers')]"));
+  assert.equal(dressOnly.length, 2, "a dress with shoes lays out without separates");
+  assert.equal(sandbox.window.qa.layout([]).length, 0);
+}
+{
+  sandbox.window.qa.reset();
+  click({ wardrobeSource: "sample" });
+  for (const id of ["demo-cream-merino-knit", "demo-indigo-jeans", "demo-rust-blazer", "demo-brown-leather-loafers"]) {
+    click({ selectPiece: id });
+  }
+  const before = writes;
+  let html = run("renderBuilder()");
+  assert.equal((html.match(/data-board-piece=/g) || []).length, 4);
+  assert.equal((html.match(/class="flatlay-pin"/g) || []).length, 4, "one badge per pinned piece");
+  assert(!html.includes("flatlay-menu"));
+  click({ boardPiece: "demo-rust-blazer" }, [".flatlay-piece"]);
+  assert.equal(state().boardMenu, "demo-rust-blazer");
+  html = run("renderBuilder()");
+  assert(html.includes('id="piece-menu-title">Rust tailored blazer<'));
+  assert(html.includes('data-board-piece="demo-rust-blazer" aria-label="Rust tailored blazer, pinned. Options" aria-haspopup="true" aria-expanded="true"'));
+  click({ pinPiece: "demo-rust-blazer" }, [".flatlay-menu"]);
+  assert(!state().draft.pins.includes("demo-rust-blazer"), "Unpin from the menu");
+  assert(state().draft.items.some((i) => i.id === "demo-rust-blazer"), "Unpin keeps the piece");
+  assert.equal(state().boardMenu, "demo-rust-blazer", "menu stays open after Unpin");
+  assert.equal((run("renderBuilder()").match(/class="flatlay-pin"/g) || []).length, 3);
+  for (const r of listeners.get("keydown")) r.h({ key: "Escape" });
+  assert.equal(state().boardMenu, null, "Escape closes the menu");
+  // Swap keeps the pin state and changes only that piece.
+  const others = state().draft.items.filter((i) => i.id !== "demo-cream-merino-knit").map((i) => i.id);
+  click({ boardPiece: "demo-cream-merino-knit" }, [".flatlay-piece"]);
+  click({ swapPiece: "demo-cream-merino-knit" }, [".flatlay-menu"]);
+  const swapped = state().draft.items.find((i) => i.type === "top");
+  assert(swapped && swapped.id !== "demo-cream-merino-knit", "a different top was swapped in");
+  assert(state().draft.pins.includes(swapped.id), "swapped piece keeps the pin");
+  assert(!state().draft.pins.includes("demo-cream-merino-knit"));
+  assert.deepEqual(state().draft.items.filter((i) => i.type !== "top").map((i) => i.id), others);
+  assert.equal(state().boardMenu, swapped.id, "menu follows the swapped piece");
+  assert.equal(state().draft.items.length, 4);
+  // A dress with no other dress available reports that and changes nothing.
+  click({ selectPiece: "demo-emerald-slip-dress" });
+  click({ confirmReplace: "" });
+  const dressLook = JSON.stringify(state().draft.items);
+  assert.equal(sandbox.window.qa.swap("demo-emerald-slip-dress"), null);
+  assert.equal(JSON.stringify(state().draft.items), dressLook);
+  assert(state().notice.includes("No other dress"));
+  // Remove from the menu clears the piece and closes the menu.
+  click({ boardPiece: "demo-emerald-slip-dress" }, [".flatlay-piece"]);
+  click({ removePiece: "demo-emerald-slip-dress" }, [".flatlay-menu"]);
+  assert(!state().draft.items.some((i) => i.id === "demo-emerald-slip-dress"));
+  assert.equal(state().boardMenu, null);
+  // Source change closes any menu; nothing above wrote storage.
+  click({ boardPiece: state().draft.items[0].id }, [".flatlay-piece"]);
+  click({ wardrobeSource: "owned" });
+  assert.equal(state().boardMenu, null);
+  assert.equal(writes, before, "board actions never write storage");
+  // Saved-look and lookbook boards are not interactive.
+  assert(!run("board(['demo-cream-merino-knit','demo-indigo-jeans'].map(window.qa.sample))").includes("data-board-piece"));
+  sandbox.window.qa.reset();
+}
+
 console.log(
-  "PASS: tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
+  "PASS: flat-lay order/scale/pins/menu/swap; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
 );

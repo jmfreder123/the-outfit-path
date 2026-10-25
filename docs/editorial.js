@@ -250,7 +250,8 @@
     "demo-black-crossbody",
   ];
   const baseGarmentArt = garmentArt;
-  garmentArt = function editorialGarmentArt(item) {
+  // An approved photo is shown only for an unedited sample or starter record.
+  function assetFor(item) {
     const original = item.id.startsWith("starter-")
       ? seed().find((i) => i.id === item.id)
       : demoCatalog.find((i) => i.id === item.id);
@@ -258,7 +259,10 @@
       ["name", "type", "color", "hex"].every((key) =>
         original[key] === item[key]
       );
-    const asset = !item.photoId && faithful && catalogAssets[item.id];
+    return (!item.photoId && faithful && catalogAssets[item.id]) || null;
+  }
+  garmentArt = function editorialGarmentArt(item) {
+    const asset = assetFor(item);
     if (!asset) {
       return `<span class="photo-frame" ${
         item.photoId
@@ -282,33 +286,229 @@
     }" loading="lazy" decoding="async"></picture></span>`;
   };
 
+  // Flat-lay board. Each approved photo has one approximate laid-flat size in
+  // cm (the other side comes from the photo's own proportions) and the
+  // garment's bounds inside the 1254px source image. The bounds trim only
+  // transparent margin; no garment detail is cropped, stretched or recoloured.
+  // t and b are the garment's left/right edges (as fractions of its width) at
+  // 15% and 90% of its height, used to place pin badges on the garment itself.
+  const SOURCE_PX = 1254;
+  const assetShape = {
+    "ankle-boots": { w: 32, box: [218, 306, 1052, 971], t: [0.376, 0.946], b: [0.257, 0.74] },
+    "blazer": { w: 58, box: [109, 64, 1146, 1184], t: [0.167, 0.83], b: [0.04, 0.956] },
+    "charcoal-trousers": { h: 104, box: [336, 37, 919, 1216], t: [0.081, 0.919], b: [0.009, 0.991] },
+    "chunky-sneakers": { w: 36, box: [9, 98, 1246, 1145], t: [0.343, 0.93], b: [0.297, 0.76] },
+    "cobalt-hoodie": { w: 66, box: [54, 37, 1208, 1199], t: [0.324, 0.671], b: [0.008, 0.987] },
+    "cream-knit": { w: 60, box: [59, 129, 1195, 1146], t: [0.178, 0.816], b: [0.083, 0.918] },
+    "crossbody-bag": { h: 46, box: [323, 128, 1054, 1118], t: [0.32, 0.992], b: [0.042, 0.8] },
+    "emerald-slip-dress": { h: 118, box: [301, 32, 971, 1228], t: [0.258, 0.703], b: [0.006, 0.984] },
+    "indigo-jeans": { h: 104, box: [317, 43, 938, 1210], t: [0.097, 0.903], b: [0.003, 0.997] },
+    "loafers": { h: 30, box: [197, 82, 1057, 1163], t: [0.107, 0.891], b: [0.092, 0.901] },
+    "patterned-midi-skirt": { h: 80, box: [61, 64, 1193, 1205], t: [0.284, 0.715], b: [0.041, 0.964] },
+    "rust-blazer": { w: 64, box: [42, 90, 1212, 1170], t: [0.227, 0.773], b: [0.067, 0.926] },
+    "sport-leggings": { h: 92, box: [389, 41, 865, 1214], t: [0.036, 0.964], b: [0.092, 0.899] },
+    "tote": { h: 44, box: [120, 64, 1134, 1190], t: [0.351, 0.653], b: [0.08, 0.91] },
+    "watch": { h: 24, box: [505, 34, 763, 1222], t: [0.271, 0.674], b: [0.287, 0.659] },
+    "white-shirt": { w: 62, box: [99, 90, 1155, 1168], t: [0.186, 0.809], b: [0.208, 0.789] },
+  };
+  // Tap area for each approved photo: the garment's outline sampled at 17
+  // heights, so transparent corners never block a piece underneath.
+  const assetHit = {
+    "ankle-boots": "52.8% 0.0%, 38.1% 6.2%, 37.8% 12.5%, 37.2% 18.6%, 36.5% 25.0%, 35.4% 31.1%, 33.5% 37.4%, 30.9% 43.6%, 27.9% 49.9%, 24.2% 56.2%, 18.8% 62.4%, 11.5% 68.7%, 5.2% 74.9%, 0.8% 81.2%, 0.2% 87.4%, 23.6% 93.7%, 26.6% 99.8%, 50.8% 99.8%, 72.1% 93.7%, 75.8% 87.4%, 98.8% 81.2%, 99.9% 74.9%, 99.9% 68.7%, 99.9% 62.4%, 99.6% 56.2%, 99.4% 49.9%, 97.7% 43.6%, 95.9% 37.4%, 94.5% 31.1%, 94.1% 25.0%, 94.4% 18.6%, 95.2% 12.5%, 90.0% 6.2%, 65.6% 0.0%",
+    "blazer": "41.5% 0.0%, 31.4% 6.2%, 17.8% 12.5%, 14.6% 18.8%, 11.9% 25.0%, 9.2% 31.2%, 6.6% 37.5%, 4.1% 43.8%, 1.8% 50.0%, 0.2% 56.2%, 0.1% 62.5%, 0.7% 68.8%, 1.5% 75.0%, 2.4% 81.2%, 3.4% 87.5%, 14.6% 93.8%, 30.6% 99.9%, 68.6% 99.9%, 85.0% 93.8%, 96.3% 87.5%, 97.4% 81.2%, 98.4% 75.0%, 99.3% 68.8%, 99.9% 62.5%, 99.8% 56.2%, 98.2% 50.0%, 95.9% 43.8%, 93.4% 37.5%, 90.8% 31.2%, 88.1% 25.0%, 85.3% 18.8%, 82.1% 12.5%, 68.6% 6.2%, 58.7% 0.0%",
+    "charcoal-trousers": "13.2% 0.0%, 11.0% 6.2%, 8.6% 12.5%, 7.0% 18.7%, 6.0% 24.9%, 5.3% 31.2%, 4.8% 37.5%, 4.5% 43.7%, 3.9% 50.0%, 3.4% 56.2%, 3.1% 62.4%, 2.6% 68.7%, 2.1% 75.0%, 1.5% 81.2%, 1.0% 87.4%, 0.5% 93.7%, 11.1% 99.9%, 88.5% 99.9%, 99.7% 93.7%, 99.1% 87.4%, 98.6% 81.2%, 98.1% 75.0%, 97.6% 68.7%, 97.1% 62.4%, 96.7% 56.2%, 96.2% 50.0%, 95.9% 43.7%, 95.4% 37.5%, 94.9% 31.2%, 94.2% 24.9%, 93.1% 18.7%, 91.6% 12.5%, 89.2% 6.2%, 87.0% 0.0%",
+    "chunky-sneakers": "57.5% 0.0%, 51.7% 6.2%, 37.9% 12.4%, 31.5% 18.7%, 29.5% 24.9%, 26.0% 31.2%, 21.6% 37.4%, 16.6% 43.7%, 10.8% 50.0%, 5.0% 56.2%, 2.1% 62.5%, 0.1% 68.7%, 2.4% 75.0%, 14.1% 81.2%, 27.6% 87.5%, 33.5% 93.7%, 48.6% 99.9%, 59.5% 99.9%, 72.8% 93.7%, 78.0% 87.5%, 80.7% 81.2%, 83.0% 75.0%, 94.7% 68.7%, 98.9% 62.5%, 100.0% 56.2%, 99.6% 50.0%, 97.8% 43.7%, 95.2% 37.4%, 94.1% 31.2%, 92.3% 24.9%, 93.4% 18.7%, 89.2% 12.4%, 63.0% 6.2%, 60.1% 0.0%",
+    "cobalt-hoodie": "47.8% 0.0%, 38.1% 6.2%, 33.2% 12.5%, 32.8% 18.7%, 31.5% 25.0%, 22.7% 31.2%, 17.9% 37.4%, 14.1% 43.7%, 10.6% 50.0%, 7.5% 56.2%, 4.8% 62.5%, 2.8% 68.7%, 1.2% 75.0%, 0.3% 81.2%, 0.1% 87.4%, 2.7% 93.7%, 8.7% 99.9%, 91.8% 99.9%, 97.1% 93.7%, 99.7% 87.4%, 99.8% 81.2%, 98.6% 75.0%, 97.0% 68.7%, 95.1% 62.5%, 92.4% 56.2%, 89.0% 50.0%, 85.3% 43.7%, 81.4% 37.4%, 76.4% 31.2%, 67.5% 25.0%, 66.7% 18.7%, 66.5% 12.5%, 61.5% 6.2%, 52.1% 0.0%",
+    "cream-knit": "38.6% 0.0%, 26.7% 6.2%, 19.0% 12.5%, 15.5% 18.7%, 12.3% 25.0%, 9.5% 31.2%, 6.8% 37.5%, 4.5% 43.7%, 2.5% 50.0%, 0.9% 56.2%, 0.3% 62.4%, 0.2% 68.7%, 1.3% 74.9%, 3.3% 81.2%, 6.2% 87.4%, 11.0% 93.7%, 72.4% 99.9%, 75.4% 99.9%, 89.3% 93.7%, 93.8% 87.4%, 96.6% 81.2%, 98.7% 74.9%, 99.8% 68.7%, 99.9% 62.4%, 98.9% 56.2%, 97.4% 50.0%, 95.2% 43.7%, 92.9% 37.5%, 90.1% 31.2%, 87.2% 25.0%, 84.2% 18.7%, 80.6% 12.5%, 73.0% 6.2%, 61.7% 0.0%",
+    "crossbody-bag": "64.2% 0.0%, 45.8% 6.2%, 35.2% 12.4%, 23.0% 18.7%, 13.3% 24.9%, 9.0% 31.2%, 4.8% 37.5%, 0.8% 43.7%, 0.3% 50.0%, 2.1% 56.2%, 3.6% 62.4%, 4.9% 68.7%, 4.2% 74.9%, 4.5% 81.2%, 3.8% 87.5%, 6.2% 93.7%, 51.6% 99.9%, 67.0% 99.9%, 78.9% 93.7%, 80.4% 87.5%, 80.0% 81.2%, 80.0% 74.9%, 81.3% 68.7%, 79.2% 62.4%, 72.2% 56.2%, 42.7% 50.0%, 37.2% 43.7%, 83.9% 37.5%, 95.1% 31.2%, 99.0% 24.9%, 100.0% 18.7%, 98.6% 12.4%, 93.7% 6.2%, 79.5% 0.0%",
+    "emerald-slip-dress": "27.8% 0.0%, 28.1% 6.2%, 26.9% 12.5%, 25.8% 18.7%, 28.4% 25.0%, 28.8% 31.2%, 26.0% 37.5%, 23.4% 43.7%, 21.5% 50.0%, 19.4% 56.2%, 17.0% 62.5%, 14.8% 68.7%, 12.4% 75.0%, 8.8% 81.2%, 3.0% 87.5%, 6.0% 93.7%, 48.8% 99.9%, 66.7% 99.9%, 96.6% 93.7%, 96.0% 87.5%, 89.9% 81.2%, 86.1% 75.0%, 83.7% 68.7%, 81.2% 62.5%, 79.0% 56.2%, 76.7% 50.0%, 74.6% 43.7%, 72.1% 37.5%, 68.5% 31.2%, 68.4% 25.0%, 70.7% 18.7%, 69.4% 12.5%, 67.3% 6.2%, 67.6% 0.0%",
+    "indigo-jeans": "16.4% 0.0%, 13.7% 6.2%, 10.5% 12.4%, 8.2% 18.7%, 6.6% 24.9%, 5.5% 31.2%, 4.7% 37.4%, 4.2% 43.7%, 3.5% 50.0%, 3.1% 56.2%, 2.4% 62.5%, 1.8% 68.7%, 1.3% 75.0%, 0.8% 81.2%, 0.5% 87.5%, 0.0% 93.7%, 12.9% 99.9%, 87.8% 99.9%, 100.0% 93.7%, 99.7% 87.5%, 99.4% 81.2%, 98.9% 75.0%, 98.4% 68.7%, 97.9% 62.5%, 97.3% 56.2%, 96.6% 50.0%, 96.0% 43.7%, 95.5% 37.4%, 94.7% 31.2%, 93.6% 24.9%, 91.9% 18.7%, 89.7% 12.4%, 86.5% 6.2%, 83.7% 0.0%",
+    "loafers": "24.2% 0.0%, 16.2% 6.2%, 11.6% 12.5%, 9.3% 18.7%, 8.1% 25.0%, 7.3% 31.2%, 6.4% 37.5%, 5.1% 43.7%, 3.3% 50.0%, 0.9% 56.2%, 0.0% 62.4%, 0.3% 68.7%, 1.9% 74.9%, 4.3% 81.2%, 7.4% 87.4%, 11.6% 93.7%, 21.3% 99.9%, 78.3% 99.9%, 87.8% 93.7%, 92.2% 87.4%, 95.5% 81.2%, 98.0% 74.9%, 99.7% 68.7%, 100.0% 62.4%, 99.1% 56.2%, 96.9% 50.0%, 94.9% 43.7%, 93.6% 37.5%, 92.6% 31.2%, 91.5% 25.0%, 90.5% 18.7%, 88.3% 12.5%, 84.0% 6.2%, 77.1% 0.0%",
+    "patterned-midi-skirt": "32.8% 0.0%, 31.3% 6.2%, 29.0% 12.4%, 27.3% 18.7%, 25.7% 25.0%, 24.2% 31.2%, 22.5% 37.4%, 20.8% 43.7%, 18.8% 50.0%, 16.7% 56.2%, 14.2% 62.5%, 11.3% 68.7%, 8.0% 74.9%, 3.9% 81.2%, 0.1% 87.5%, 12.3% 93.7%, 40.5% 99.9%, 68.1% 99.9%, 88.6% 93.7%, 100.0% 87.5%, 96.1% 81.2%, 92.3% 74.9%, 89.0% 68.7%, 86.3% 62.5%, 83.9% 56.2%, 81.8% 50.0%, 79.8% 43.7%, 78.0% 37.4%, 76.1% 31.2%, 74.5% 25.0%, 72.8% 18.7%, 71.1% 12.4%, 68.7% 6.2%, 67.1% 0.0%",
+    "rust-blazer": "43.0% 0.0%, 34.8% 6.2%, 23.7% 12.5%, 20.9% 18.7%, 18.7% 25.0%, 16.5% 31.2%, 14.4% 37.5%, 12.1% 43.7%, 10.1% 50.0%, 8.4% 56.2%, 6.8% 62.5%, 5.0% 68.7%, 3.2% 75.0%, 1.4% 81.2%, 0.6% 87.5%, 14.6% 93.7%, 30.8% 99.9%, 67.0% 99.9%, 84.8% 93.7%, 99.5% 87.5%, 98.7% 81.2%, 96.8% 75.0%, 95.0% 68.7%, 93.3% 62.5%, 91.5% 56.2%, 89.8% 50.0%, 87.9% 43.7%, 85.6% 37.5%, 83.4% 31.2%, 81.3% 25.0%, 79.1% 18.7%, 76.3% 12.5%, 65.0% 6.2%, 57.2% 0.0%",
+    "sport-leggings": "13.4% 0.0%, 9.2% 6.2%, 4.8% 12.4%, 1.5% 18.7%, 0.2% 25.0%, 0.2% 31.2%, 1.7% 37.4%, 4.4% 43.7%, 7.6% 50.0%, 9.5% 56.2%, 9.0% 62.5%, 6.1% 68.7%, 5.3% 74.9%, 6.7% 81.2%, 8.6% 87.5%, 10.1% 93.7%, 11.3% 99.9%, 87.6% 99.9%, 89.3% 93.7%, 91.0% 87.5%, 93.1% 81.2%, 94.5% 74.9%, 94.1% 68.7%, 91.0% 62.5%, 90.5% 56.2%, 92.4% 50.0%, 95.6% 43.7%, 98.3% 37.4%, 99.8% 31.2%, 100.0% 25.0%, 98.5% 18.7%, 95.4% 12.4%, 90.8% 6.2%, 86.8% 0.0%",
+    "tote": "46.8% 0.0%, 39.2% 6.2%, 35.9% 12.4%, 33.5% 18.7%, 32.1% 25.0%, 30.9% 31.2%, 29.6% 37.5%, 0.1% 43.7%, 0.9% 50.0%, 2.1% 56.2%, 3.3% 62.4%, 4.4% 68.7%, 5.4% 75.0%, 6.4% 81.2%, 7.4% 87.5%, 8.7% 93.7%, 10.9% 99.9%, 88.2% 99.9%, 90.5% 93.7%, 91.6% 87.5%, 92.8% 81.2%, 94.0% 75.0%, 95.2% 68.7%, 96.4% 62.4%, 97.8% 56.2%, 99.1% 50.0%, 100.0% 43.7%, 70.6% 37.5%, 69.6% 31.2%, 68.4% 25.0%, 66.9% 18.7%, 64.6% 12.4%, 61.2% 6.2%, 53.7% 0.0%",
+    "watch": "27.5% 0.0%, 24.4% 6.2%, 25.2% 12.5%, 28.3% 18.7%, 27.5% 25.0%, 26.4% 31.2%, 15.9% 37.5%, 0.8% 43.7%, 3.9% 50.0%, 20.9% 56.2%, 26.7% 62.5%, 27.9% 68.7%, 28.3% 75.0%, 28.7% 81.2%, 28.7% 87.5%, 29.1% 93.7%, 43.0% 99.9%, 51.9% 99.9%, 65.9% 93.7%, 66.3% 87.5%, 65.9% 81.2%, 66.3% 75.0%, 66.7% 68.7%, 67.8% 62.5%, 74.0% 56.2%, 90.7% 50.0%, 94.6% 43.7%, 78.7% 37.5%, 68.6% 31.2%, 67.4% 25.0%, 66.3% 18.7%, 69.8% 12.5%, 70.5% 6.2%, 67.4% 0.0%",
+    "white-shirt": "41.6% 0.0%, 34.2% 6.2%, 20.2% 12.4%, 15.5% 18.7%, 11.9% 25.0%, 8.6% 31.2%, 5.5% 37.5%, 2.9% 43.7%, 1.0% 50.0%, 0.1% 56.2%, 0.1% 62.4%, 0.6% 68.7%, 1.2% 75.0%, 2.7% 81.2%, 3.7% 87.5%, 24.4% 93.7%, 40.1% 99.9%, 60.5% 99.9%, 75.2% 93.7%, 96.4% 87.5%, 97.6% 81.2%, 99.0% 75.0%, 99.5% 68.7%, 99.9% 62.4%, 99.9% 56.2%, 99.0% 50.0%, 97.0% 43.7%, 94.1% 37.5%, 90.9% 31.2%, 87.4% 25.0%, 83.7% 18.7%, 79.5% 12.4%, 66.0% 6.2%, 58.0% 0.0%",
+  };
+  // Pieces without an approved photo use a square tile sized by category.
+  const typeSize = {
+    top: { w: 60 },
+    layer: { w: 62 },
+    dress: { h: 112 },
+    skirt: { h: 80 },
+    pants: { h: 102 },
+    bag: { h: 42 },
+    jewelry: { h: 24 },
+  };
+  const roleOf = (item) =>
+    item.type === "dress"
+      ? "dress"
+      : ["skirt", "pants"].includes(item.type)
+      ? "bottom"
+      : SHOES.includes(item.type)
+      ? "shoes"
+      : ["top", "layer", "bag", "jewelry"].includes(item.type)
+      ? item.type
+      : "";
+  function shapeOf(item) {
+    const asset = assetFor(item);
+    const key = asset && asset[0].replace(/^.*\//, "").replace(/\.png$/, "");
+    const known = key && assetShape[key];
+    const shape = known ||
+      {
+        ...(typeSize[item.type] ||
+          (SHOES.includes(item.type) ? { w: 32 } : { w: 40 })),
+        box: [0, 0, SOURCE_PX, SOURCE_PX],
+        t: [0.2, 0.8],
+        b: [0.2, 0.8],
+      };
+    const [x0, y0, x1, y1] = shape.box,
+      ratio = (x1 - x0) / (y1 - y0);
+    const w = shape.w || shape.h * ratio, h = shape.h || shape.w / ratio;
+    return { ...shape, w, h, photo: Boolean(known), hit: known ? assetHit[key] : "" };
+  }
+  // Arranges an outfit head to toe down a centre line, with the layer to the
+  // left and the bag, accessory and shoes to the right. Units are cm.
+  function flatLayout(items) {
+    const first = (role) => items.find((i) => roleOf(i) === role);
+    const dress = first("dress"),
+      top = dress ? null : first("top"),
+      bottom = dress ? null : first("bottom");
+    const layer = first("layer"),
+      shoes = first("shoes"),
+      bag = first("bag"),
+      jewelry = first("jewelry");
+    const placed = [];
+    const put = (item, cx, cy, z, rot = 0, badge = "tr") => {
+      const s = shapeOf(item);
+      placed.push({
+        item,
+        s,
+        x: cx - s.w / 2,
+        y: cy - s.h / 2,
+        z,
+        rot,
+        badge,
+      });
+      return s;
+    };
+    let width = 0, bodyBottom = 0;
+    if (dress) {
+      const s = put(dress, 0, shapeOf(dress).h / 2 + 4, 3);
+      width = s.w * 1.3;
+      bodyBottom = s.h + 4;
+    } else if (top || bottom) {
+      let y = 0;
+      if (top) {
+        const s = put(top, 0, shapeOf(top).h / 2, 4);
+        width = s.w;
+        y = bottom ? s.h * 0.8 : s.h;
+      }
+      if (bottom) {
+        const s = shapeOf(bottom);
+        put(bottom, 0, y + s.h / 2, 2, 0, "bl");
+        width = Math.max(width, s.w);
+        y += s.h;
+      }
+      bodyBottom = y;
+    }
+    if (layer) {
+      const s = shapeOf(layer);
+      if (width) {
+        put(layer, -width * (dress ? 0.28 : 0.42), s.h / 2 - 2, dress ? 5 : 3, -6, "tl");
+      } else {
+        put(layer, 0, s.h / 2, 3);
+        width = s.w;
+        bodyBottom = s.h;
+      }
+    }
+    const right = width / 2 + 4;
+    let sideY = 2;
+    if (bag) {
+      const s = shapeOf(bag);
+      put(bag, right + s.w / 2 + 2, sideY + s.h / 2, 6, 4);
+      sideY += s.h + 6;
+    }
+    if (jewelry) {
+      const s = shapeOf(jewelry);
+      put(jewelry, right + s.w / 2 + (bag ? 10 : 4), sideY + s.h / 2, 6, 8);
+    }
+    if (shoes) {
+      const s = shapeOf(shoes);
+      if (bodyBottom) {
+        put(shoes, width * (dress ? 0.35 : 0.3) + s.w / 2, bodyBottom - s.h * 0.55, 7, -4);
+      } else put(shoes, 0, s.h / 2 + Math.max(sideY, 0), 7);
+    }
+    return placed;
+  }
+  const pct = (n) => `${Math.round(n * 1000) / 10}%`;
+  // interactive: board pieces become buttons that open the piece menu.
+  function flatLay(items, { interactive = false, pins = [], menu = null } = {}) {
+    const placed = flatLayout(items);
+    if (!placed.length) return `<div class="flatlay flatlay-empty"></div>`;
+    const x0 = Math.min(...placed.map((p) => p.x)),
+      y0 = Math.min(...placed.map((p) => p.y));
+    const W = Math.max(...placed.map((p) => p.x + p.s.w)) - x0,
+      H = Math.max(...placed.map((p) => p.y + p.s.h)) - y0;
+    const pieces = placed.map((p) => {
+      const pinned = pins.includes(p.item.id);
+      const style = `left:${pct((p.x - x0) / W)};top:${pct((p.y - y0) / H)};width:${
+        pct(p.s.w / W)
+      };height:${pct(p.s.h / H)};z-index:${p.z};--rot:${p.rot}deg`;
+      const [bx0, by0, bx1, by1] = p.s.box, bw = bx1 - bx0, bh = by1 - by0;
+      const art = p.s.photo
+        ? `<span class="flatlay-photo" style="width:${pct(SOURCE_PX / bw)};height:${
+          pct(SOURCE_PX / bh)
+        };left:${pct(-bx0 / bw)};top:${pct(-by0 / bh)}">${garmentArt(p.item)}</span>`
+        : `<span class="flatlay-tile">${garmentArt(p.item)}</span>`;
+      const label = `${p.item.name}${pinned ? ", pinned" : ""}`;
+      return interactive
+        ? `<button class="flatlay-piece" style="${style}" data-board-piece="${
+          esc(p.item.id)
+        }" aria-label="${esc(label)}. Options" aria-haspopup="true" aria-expanded="${
+          menu === p.item.id
+        }">${art}<span class="flatlay-hit" aria-hidden="true"${
+          p.s.hit ? ` style="clip-path:polygon(${p.s.hit})"` : ""
+        }></span></button>`
+        : `<span class="flatlay-piece" style="${style}" role="img" aria-label="${
+          esc(p.item.name)
+        }">${art}</span>`;
+    }).join("");
+    const badges = interactive
+      ? placed.filter((p) => pins.includes(p.item.id)).map((p) => {
+        const edge = p.badge === "bl" ? p.s.b[0] + 0.08 : p.badge === "tl" ? p.s.t[0] + 0.04 : p.s.t[1] - 0.04;
+        const bx = p.x + p.s.w * edge, by = p.y + p.s.h * (p.badge === "bl" ? 0.9 : 0.15);
+        return `<span class="flatlay-pin" aria-hidden="true" style="left:${pct((bx - x0) / W)};top:${
+          pct((by - y0) / H)
+        }"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 1.5l4 4-2 1-2.6 2.6.6 3.4-1.5 1.5L6.2 11 2.5 14.7l-1.2-1.2L5 9.8 2 6.9l1.5-1.5 3.4.6L9.5 3.4z"/></svg></span>`;
+      }).join("")
+      : "";
+    return `<div class="flatlay" style="--ar:${(W / H).toFixed(4)}">${pieces}${badges}</div>`;
+  }
+  // Options for the piece chosen on the board, docked along the board's bottom.
+  function pieceMenu(id) {
+    const item = id && draft.items.find((i) => i.id === id);
+    if (!item || draft.readOnly) return "";
+    const pinned = draft.pins.includes(id);
+    return `<section class="flatlay-menu" role="group" aria-labelledby="piece-menu-title"><h2 id="piece-menu-title">${
+      esc(item.name)
+    }</h2><p>${
+      pinned
+        ? "Pinned. Suggestions will keep it."
+        : "Not pinned. Suggestions may replace it."
+    }</p><div class="flatlay-menu-actions"><button data-pin-piece="${
+      esc(id)
+    }">${pinned ? "Unpin" : "Pin"}</button><button data-swap-piece="${
+      esc(id)
+    }">Swap</button><button data-remove-piece="${
+      esc(id)
+    }">Remove</button></div><button class="flatlay-menu-close" data-close-menu aria-label="Close options for ${
+      esc(item.name)
+    }">×</button></section>`;
+  }
   board = function editorialBoard(items) {
-    const top = items.find((item) => ["top", "dress"].includes(item.type));
-    const bottom = items.find((item) => ["skirt", "pants"].includes(item.type));
-    const shoes = items.find((item) => SHOES.includes(item.type));
-    const bag = items.find((item) => item.type === "bag");
-    const layer = items.find((item) => item.type === "layer");
-    const jewelry = items.find((item) => item.type === "jewelry");
-    return `<div class="moodboard">
-      ${layer ? `<div class="garment layer">${garmentArt(layer)}</div>` : ""}
-      ${
-      top
-        ? `<div class="garment top ${top.type === "dress" ? "dress" : ""}">${
-          garmentArt(top)
-        }</div>`
-        : ""
-    }
-      ${
-      bottom && top?.type !== "dress"
-        ? `<div class="garment bottom">${garmentArt(bottom)}</div>`
-        : ""
-    }
-      ${shoes ? `<div class="garment shoes">${garmentArt(shoes)}</div>` : ""}
-      ${bag ? `<div class="garment bag">${garmentArt(bag)}</div>` : ""}
-      ${
-      jewelry ? `<div class="garment jewelry">${garmentArt(jewelry)}</div>` : ""
-    }
-    </div>`;
+    return `<div class="flatlay-frame flatlay-small">${flatLay(items)}</div>`;
   };
 
   const baseFeatures = features;
@@ -430,6 +630,7 @@
     notice = "",
     pendingReplacement = null,
     refineOpen = false,
+    boardMenu = null,
     saving = false,
     saveTicket = null;
   const owned = () =>
@@ -456,6 +657,7 @@
     pendingReplacement = null;
     notice = "";
     refineOpen = false;
+    boardMenu = null;
     result = null;
   }
   function changed(message) {
@@ -576,6 +778,35 @@
         "Suggestion could not be completed. Your look is unchanged; try again or choose items.";
     }
   }
+  // Swap replaces one piece with the next compatible piece from the current
+  // wardrobe. It keeps the piece's pin state and never touches other pieces.
+  function swapItem(id) {
+    if (draft.readOnly) return null;
+    const current = draft.items.find((i) => i.id === id);
+    if (!current) return null;
+    const slot = slotOf(current), inLook = new Set(draft.items.map((i) => i.id));
+    const sameKind = (i) =>
+      slotOf(i) === slot &&
+      (slot !== "shape" || (i.type === "dress") === (current.type === "dress"));
+    const candidates = pool().filter((i) => sameKind(i) && !inLook.has(i.id));
+    if (!candidates.length) {
+      notice = `No other ${
+        slot === "shape" ? (current.type === "dress" ? "dress" : "bottom") : slotName[slot]
+      } in this wardrobe to swap in. Your look is unchanged.`;
+      return null;
+    }
+    const ranked = [...candidates, current].sort((a, b) =>
+      pieceScore(b, draft.answers) - pieceScore(a, draft.answers) ||
+      a.id.localeCompare(b.id)
+    );
+    const next = ranked[(ranked.indexOf(current) + 1) % ranked.length];
+    draft.items = draft.items.map((i) => i.id === id ? clone(next) : i);
+    if (draft.pins.includes(id)) {
+      draft.pins = draft.pins.map((p) => p === id ? next.id : p);
+    }
+    changed(`Swapped ${current.name} for ${next.name}.`);
+    return next.id;
+  }
   function filterMatch(i) {
     return editorialFilter === "all" ||
       editorialFilter === "bottoms" && ["pants", "skirt"].includes(i.type) ||
@@ -640,11 +871,22 @@
     draft = clone(drafts.get(draftKey()) || fresh());
     pendingReplacement = null;
     notice = "";
+    boardMenu = null;
     editorialFilter = "all";
   }
   function figureBoard(items) {
-    return `<div class="mannequin-board"><img class="mannequin-guide" src="assets/mannequin.svg" alt="Neutral outfit planning mannequin">${
-      board(items)
+    return `<div class="flatlay-frame flatlay-stage">${
+      items.length
+        ? flatLay(items, {
+          interactive: !draft.readOnly,
+          pins: draft.pins,
+          menu: boardMenu,
+        }) + pieceMenu(boardMenu)
+        : `<p class="flatlay-empty-note">${
+          pool().length
+            ? "Your outfit will appear here."
+            : "No personal clothes yet."
+        }</p>`
     }</div>`;
   }
   function wardrobePane() {
@@ -731,13 +973,13 @@
       wardrobeOpen ? "" : "<button data-open-wardrobe>Open wardrobe</button>"
     }</div>${preferences()}<p class="editorial-preview-note">${
       source === "sample" ? "Sample wardrobe · fictional demo" : "My wardrobe"
-    }</p><div class="editorial-canvas" aria-label="Dress the mannequin">${
+    }</p><div class="editorial-canvas" role="group" aria-label="Outfit board">${
       figureBoard(draft.items)
-    }</div><p class="mannequin-caption">Visual outfit planner · proportions are illustrative, not a fit or virtual try-on preview.</p>${
+    }</div><p class="mannequin-caption">Laid out flat at approximate scale. Not a fit or try-on preview.</p>${
       !draft.items.length
         ? `<p class="mannequin-help">${
           pool().length
-            ? "Tap a piece to dress the mannequin, or choose Suggest a look. Chosen pieces stay pinned."
+            ? "Tap a piece in the wardrobe to add it, or choose Suggest a look. Tap a piece on the board to pin, swap or remove it."
             : "No personal clothes added yet. Choose Sample wardrobe to explore, or add an item."
         }</p>`
         : ""
@@ -869,6 +1111,7 @@
     result = null;
     pendingReplacement = null;
     notice = "";
+    boardMenu = null;
     view = "builder";
     remember();
     repaint();
@@ -876,9 +1119,13 @@
   document.addEventListener("click", (event) => {
     const closeRefine = refineOpen && !event.target.closest(".simple-refine");
     if (closeRefine) refineOpen = false;
+    const closeMenu = boardMenu &&
+      !event.target.closest(".flatlay-menu, .flatlay-piece");
+    const menuWas = boardMenu;
+    if (closeMenu) boardMenu = null;
     const target = event.target.closest("button");
     if (!target) {
-      if (closeRefine) repaint();
+      if (closeRefine || closeMenu) repaint(closeMenu ? `[data-board-piece="${menuWas}"]` : "");
       return;
     }
     const d = target.dataset;
@@ -902,12 +1149,15 @@
       "openWardrobe",
       "openlook",
       "discardOpen",
+      "boardPiece",
+      "swapPiece",
+      "closeMenu",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
       );
     if (!handled) {
-      if (closeRefine) repaint();
+      if (closeRefine || closeMenu) repaint();
       return;
     }
     event.preventDefault();
@@ -928,6 +1178,7 @@
       after = `[data-wardrobe-source="${source}"]`;
     }
     if (d.selectPiece) {
+      boardMenu = null;
       selectItem(d.selectPiece);
       after = pendingReplacement
         ? "#replace-question"
@@ -943,20 +1194,38 @@
       pendingReplacement = null;
       notice = "Replacement cancelled. Your look is unchanged.";
     }
+    if (d.boardPiece && !draft.readOnly) {
+      boardMenu = boardMenu === d.boardPiece ? null : d.boardPiece;
+      after = boardMenu
+        ? `[data-pin-piece="${d.boardPiece}"]`
+        : `[data-board-piece="${d.boardPiece}"]`;
+    }
+    if (d.closeMenu !== undefined) {
+      after = `[data-board-piece="${boardMenu}"]`;
+      boardMenu = null;
+    }
+    if (d.swapPiece && !draft.readOnly) {
+      const next = swapItem(d.swapPiece);
+      if (next && boardMenu === d.swapPiece) boardMenu = next;
+      after = `[data-swap-piece="${next || d.swapPiece}"]`;
+    }
     if (d.pinPiece && !draft.readOnly) {
       draft.pins = draft.pins.includes(d.pinPiece)
         ? draft.pins.filter((id) => id !== d.pinPiece)
         : [...draft.pins, d.pinPiece];
       changed("Pin updated. The item remains in your look.");
       after = `[data-pin-piece="${d.pinPiece}"]`;
+      if (boardMenu && boardMenu !== d.pinPiece) boardMenu = null;
     }
     if (d.removePiece && !draft.readOnly) {
       draft.items = draft.items.filter((i) => i.id !== d.removePiece);
       draft.pins = draft.pins.filter((id) => id !== d.removePiece);
       changed("Piece removed from this draft. Your wardrobe is unchanged.");
+      if (boardMenu === d.removePiece) boardMenu = null;
       after = "#selected-heading";
     }
     if (d.suggest !== undefined) {
+      boardMenu = null;
       suggest();
       after = "[data-suggest]";
     }
@@ -983,11 +1252,13 @@
       after = "[data-close-wardrobe]";
     }
     if (d.newDraft !== undefined) {
+      boardMenu = null;
       draft = fresh();
       notice = "New unsaved look for this date. Existing saves are unchanged.";
       remember();
     }
     if (d.editSaved !== undefined) {
+      boardMenu = null;
       draft.readOnly = false;
       draft.pins = draft.items.map((i) => i.id);
       notice = "Editing a copy. Only Update saved look commits your changes.";
@@ -1100,7 +1371,11 @@
   }, true);
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    if (pendingReplacement) {
+    if (boardMenu) {
+      const id = boardMenu;
+      boardMenu = null;
+      repaint(`[data-board-piece="${id}"]`);
+    } else if (pendingReplacement) {
       const id = pendingReplacement.id;
       pendingReplacement = null;
       repaint(`[data-select-piece="${id}"]`);
@@ -1127,6 +1402,7 @@
     sourceChosen = false;
     pendingReplacement = null;
     refineOpen = false;
+    boardMenu = null;
     notice = "";
     result = null;
   }
