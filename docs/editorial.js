@@ -753,69 +753,247 @@
     draft.pins.push(id);
     changed(`${item.name} added and pinned.`);
   }
+  // Suggestions: local rules, no model or network. Whole outfits are scored
+  // so pieces suit each other, not just the occasion one by one.
+  // Occasions each approved sample piece suits. Curated for the fictional
+  // samples only; a person's own pieces carry no tags and are not limited.
+  const ALL_OCCASIONS = ["business", "business-casual", "everyday", "evening", "sporty", "streetwear"];
+  const sampleOccasions = {
+    "demo-emerald-slip-dress": ["evening", "everyday", "business-casual"],
+    "demo-patterned-midi-skirt": ["everyday", "business-casual", "evening", "streetwear"],
+    "demo-rust-blazer": ["business", "business-casual", "everyday", "evening", "streetwear"],
+    "demo-cobalt-hoodie": ["everyday", "sporty", "streetwear"],
+    "demo-indigo-jeans": ["everyday", "business-casual", "streetwear", "evening"],
+    "demo-black-sport-leggings": ["sporty", "everyday", "streetwear"],
+    "demo-off-white-chunky-sneakers": ["sporty", "everyday", "streetwear"],
+    "demo-black-crossbody": ["business", "business-casual", "everyday", "evening", "streetwear"],
+    "demo-cream-merino-knit": ["business", "business-casual", "everyday", "evening"],
+    "demo-brown-leather-loafers": ["business", "business-casual", "everyday", "evening"],
+    "demo-black-leather-tote": ["business", "business-casual", "everyday"],
+    "demo-black-leather-watch": ALL_OCCASIONS,
+    "starter-6": ["business", "business-casual", "evening", "everyday"],
+    "starter-15": ["business", "business-casual", "everyday", "evening", "streetwear"],
+    "starter-33": ["business", "business-casual", "evening", "streetwear", "everyday"],
+    "starter-20": ["business", "business-casual", "everyday", "evening", "streetwear"],
+  };
+  // Tags apply only to an unedited sample record (same check as its photo).
+  const occasionsFor = (i) =>
+    i.catalogSample || (assetFor(i) && i.id.startsWith("starter-") && source === "sample")
+      ? sampleOccasions[i.id] || null
+      : null;
+  const NEUTRALS = new Set(["black", "white", "cream", "gray", "navy", "brown", "indigo"]);
+  // How well two styles sit together. A bold piece pairs best with classic
+  // or relaxed basics; two bold pieces compete.
+  const STYLE_FIT = {
+    classic: { classic: 2, romantic: 1, relaxed: 0.5, bold: 1 },
+    romantic: { classic: 1, romantic: 2, relaxed: 0, bold: 0.5 },
+    relaxed: { classic: 0.5, romantic: 0, relaxed: 2, bold: 1 },
+    bold: { classic: 1, romantic: 0.5, relaxed: 1, bold: 0 },
+  };
+  // How dressed-up a piece reads, from its style and category.
+  const formality = (i) =>
+    ({ classic: 2, romantic: 1.5, bold: 1, relaxed: 0.5 }[i.style] ?? 1) +
+    (i.type === "sneakers" ? -0.5 : i.type === "heels" ? 0.5 : 0);
+  const OCCASION_FORMALITY = {
+    business: 2.2,
+    "business-casual": 1.7,
+    evening: 1.6,
+    everyday: 0.9,
+    sporty: 0.4,
+    streetwear: 0.8,
+  };
+  // Optional roles: "yes" adds the best match; "maybe" adds one only when it
+  // fits clearly; "no" leaves the role empty unless the person pinned a piece.
+  const OPTIONAL = {
+    business: { layer: "yes", bag: "yes", jewelry: "maybe" },
+    "business-casual": { layer: "yes", bag: "yes", jewelry: "maybe" },
+    evening: { layer: "maybe", bag: "yes", jewelry: "maybe" },
+    everyday: { layer: "maybe", bag: "maybe", jewelry: "no" },
+    sporty: { layer: "no", bag: "no", jewelry: "no" },
+    streetwear: { layer: "maybe", bag: "maybe", jewelry: "no" },
+  };
+  // The legacy questionnaire's mood and palette answers are not shown in
+  // this builder, so they are left out instead of silently biasing ranking.
+  const rankAnswers = () => ({
+    ...draft.answers,
+    mood: undefined,
+    palette: undefined,
+  });
+  const itemScore = (i) => pieceScore(i, rankAnswers());
+  function outfitScore(items) {
+    const theme = draft.answers.occasionTheme || "everyday";
+    // Single-piece scores count at half so how the pieces work together
+    // decides between close outfits.
+    let score = 0.5 * items.reduce((t, i) => t + itemScore(i), 0);
+    for (let a = 0; a < items.length; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        score += STYLE_FIT[items[a].style]?.[items[b].style] ?? 0.5;
+      }
+    }
+    const f = items.map(formality);
+    if (f.length) {
+      score -= 0.8 * (Math.max(...f) - Math.min(...f));
+      const avg = f.reduce((t, x) => t + x, 0) / f.length;
+      score -= 0.6 * Math.abs(avg - (OCCASION_FORMALITY[theme] ?? 1));
+    }
+    // Accents: a non-neutral colour, or a bold garment (which may be a print
+    // even when its main colour is neutral, like the floral skirt).
+    const accents = new Set(
+      items.map((i) =>
+        i.color && !NEUTRALS.has(i.color)
+          ? i.color
+          : i.style === "bold" && ["top", "shape", "layer"].includes(slotOf(i))
+          ? `print:${i.id}`
+          : ""
+      ).filter(Boolean),
+    ).size;
+    score += accents === 1 ? 1 : -2.5 * Math.max(0, accents - 1);
+    // A sample piece outside its occasions is marked down, not ruled out,
+    // so a pinned piece still gets a complete look.
+    for (const i of items) {
+      const tags = occasionsFor(i);
+      if (tags && !tags.includes(theme)) score -= 3;
+    }
+    // Trainers suit sporty and casual days, not business or evening.
+    const sneakers = items.some((i) => i.type === "sneakers");
+    if (sneakers) {
+      score += { business: -3, "business-casual": -1.5, evening: -3, sporty: 1.5, streetwear: 1 }[theme] || 0;
+    }
+    if (data.learning && data.ratings.length) {
+      score += 3 * (modelScore(items, rankAnswers()) - 0.5);
+    }
+    return score;
+  }
   function suggest() {
     if (draft.readOnly) return;
     const available = pool();
     const before = clone(draft);
     try {
-      const assignments = Object.fromEntries(
-        draft.items.map((i) => [slotOf(i), i]),
+      const theme = draft.answers.occasionTheme || "everyday";
+      const current = Object.fromEntries(draft.items.map((i) => [slotOf(i), i]));
+      const isPinned = (slot) =>
+        current[slot] && draft.pins.includes(current[slot].id);
+      // Candidates for a role: the pinned piece, or the best few pieces. The
+      // current unpinned piece stays eligible; the outfit as a whole must
+      // differ from the current one (checked below).
+      function candidates(slot, predicate = () => true) {
+        if (isPinned(slot)) return predicate(current[slot]) ? [current[slot]] : [];
+        const fits = (i) => !occasionsFor(i) || occasionsFor(i).includes(theme);
+        let all = available.filter((i) => slotOf(i) === slot && predicate(i));
+        // Prefer pieces suited to the occasion when any can fill this role.
+        if (all.some(fits)) all = all.filter(fits);
+        return all.sort((a, b) => itemScore(b) - itemScore(a) || a.id.localeCompare(b.id))
+          .slice(0, 8);
+      }
+      // Keep the look's kind (dress or separates) when it already has one, so
+      // Suggest never swaps separates for a dress or the reverse unasked.
+      const hasDress = current.shape?.type === "dress";
+      const hasSeparates = Boolean(current.top) ||
+        Boolean(current.shape && current.shape.type !== "dress");
+      const anyDress = available.some((i) => i.type === "dress");
+      const anySeparates = available.some((i) =>
+        slotOf(i) === "top" || ["skirt", "pants"].includes(i.type)
       );
-      const pinned = (slot) =>
-        assignments[slot] && draft.pins.includes(assignments[slot].id);
-      const theme = draft.answers.occasionTheme,
-        preference = draft.answers.stylePreference;
-      function pick(slot, predicate = () => true) {
-        if (pinned(slot)) return assignments[slot];
-        const old = assignments[slot];
-        const ranked = available.filter((i) =>
-          slotOf(i) === slot && predicate(i)
-        ).sort((a, b) =>
-          pieceScore(b, draft.answers) - pieceScore(a, draft.answers) ||
-          a.id.localeCompare(b.id)
+      const pinnedDress = isPinned("shape") && hasDress ||
+        hasDress && !hasSeparates && anyDress;
+      const pinnedSeparates = isPinned("top") ||
+        isPinned("shape") && !hasDress ||
+        hasSeparates && !hasDress && anySeparates;
+      const shoes = candidates("shoes");
+      const shoeOptions = shoes.length ? shoes : [null];
+      const cores = [];
+      if (!pinnedSeparates) {
+        for (const dress of candidates("shape", (i) => i.type === "dress")) {
+          for (const shoe of shoeOptions) cores.push([dress, shoe]);
+        }
+      }
+      if (!pinnedDress) {
+        const tops = candidates("top"), bottoms = candidates("shape", (i) => i.type !== "dress");
+        for (const top of tops.length ? tops : [null]) {
+          for (const bottom of bottoms.length ? bottoms : [null]) {
+            if (!top && !bottom) continue;
+            for (const shoe of shoeOptions) cores.push([top, bottom, shoe]);
+          }
+        }
+      }
+      const ranked = cores.map((c) => c.filter(Boolean))
+        .filter((c) => c.length)
+        .map((c) => ({ items: c, score: outfitScore(c) }))
+        .sort((a, b) =>
+          b.score - a.score ||
+          a.items.map((i) => i.id).join().localeCompare(b.items.map((i) => i.id).join())
         );
-        const alternatives = ranked.filter((i) => i.id !== old?.id);
-        // Preference ranking is always used; variety cycles only among the best alternatives.
-        return alternatives.length
-          ? alternatives[draft.variant % Math.min(2, alternatives.length)]
-          : old || ranked[0];
+      const currentCore = draft.items.filter((i) =>
+        ["shape", "top", "shoes"].includes(slotOf(i))
+      ).map((i) => i.id).sort().join();
+      // Alternatives must be close to the best match; a much weaker outfit
+      // is not offered just to be different.
+      // The best score includes the current outfit.
+      const currentItems = draft.items.filter((i) =>
+        ["shape", "top", "shoes"].includes(slotOf(i))
+      );
+      const best = Math.max(
+        ranked[0]?.score ?? -Infinity,
+        currentItems.length ? outfitScore(currentItems) : -Infinity,
+      );
+      const options = ranked.filter((o) =>
+        o.items.map((i) => i.id).sort().join() !== currentCore &&
+        o.score >= best - 4
+      );
+      if (!options.length && currentCore && ranked.length &&
+        draft.items.some((i) => !draft.pins.includes(i.id))) {
+        notice = `This is already the best match for ${
+          occasionOptions.find(([id]) => id === theme)?.[1] || "this occasion"
+        } in this wardrobe. Swap a piece or change the occasion for something different.`;
+        return;
       }
-      const pinnedDress = pinned("shape") && assignments.shape.type === "dress";
-      const separates = pinned("top") ||
-        pinned("shape") && assignments.shape.type !== "dress" ||
-        !pinnedDress && assignments.shape && assignments.shape.type !== "dress";
-      if (!pinned("shape")) {
-        const preferDress = !separates &&
-          (assignments.shape?.type === "dress" || theme === "evening" ||
-            preference === "feminine");
-        const candidates = available.filter((i) => slotOf(i) === "shape");
-        const useDress = preferDress && candidates.some((i) =>
-              i.type === "dress"
-            ) || !separates && !candidates.some((i) => i.type !== "dress");
-        assignments.shape = pick(
-          "shape",
-          (i) => useDress ? i.type === "dress" : i.type !== "dress",
-        );
+      // Prefer a clearly different outfit (two or more main pieces changed)
+      // when one is close enough; otherwise change a single piece.
+      const currentIds = new Set(currentItems.map((i) => i.id));
+      const changes = (o) => o.items.filter((i) => !currentIds.has(i.id)).length;
+      const distinct = options.filter((o) => changes(o) >= 2);
+      const pick = distinct.length ? distinct : options.length ? options : ranked;
+      const chosen = pick[draft.variant % Math.max(1, Math.min(2, pick.length))];
+      const next = chosen ? chosen.items.slice() : draft.items.filter((i) =>
+        ["shape", "top", "shoes"].includes(slotOf(i))
+      );
+      // Optional roles, added one at a time only when they help.
+      for (const slot of ["layer", "bag", "jewelry"]) {
+        if (isPinned(slot)) {
+          next.push(current[slot]);
+          continue;
+        }
+        const want = OPTIONAL[theme]?.[slot] || "maybe";
+        if (want === "no") continue;
+        const base = outfitScore(next);
+        const best = candidates(slot)
+          .map((i) => ({ i, gain: outfitScore([...next, i]) - base }))
+          .sort((a, b) => b.gain - a.gain || a.i.id.localeCompare(b.i.id))[0];
+        if (best && (want === "yes" ? best.gain > -1 : best.gain >= 2.5)) {
+          next.push(best.i);
+        }
       }
-      if (assignments.shape?.type === "dress") delete assignments.top;
-      else assignments.top = pick("top");
-      // Complete missing compatible roles even if every existing item is pinned.
-      for (const slot of ["shoes", "layer", "bag", "jewelry"]) {
-        assignments[slot] = pick(slot);
-      }
-      const next = slots.map((slot) => assignments[slot]).filter(Boolean);
-      const changedIds = next.map((i) =>
-        i.id
-      ).join(",") !== draft.items.map((i) => i.id).join(",");
+      const order = (i) => slots.indexOf(slotOf(i));
+      next.sort((a, b) => order(a) - order(b));
+      const changedIds = next.map((i) => i.id).join(",") !==
+        draft.items.map((i) => i.id).join(",");
       draft.items = clone(next);
       draft.variant++;
       if (changedIds) {
-        changed("Suggestion ready. Your pinned pieces stayed in place.");
-      } else {notice = draft.items.length && draft.items.every((i) =>
+        const occasion = occasionOptions.find(([id]) => id === theme)?.[1] || "your day";
+        const style = styleOptions.find(([id]) => id === draft.answers.stylePreference);
+        changed(
+          `Suggested for ${occasion}${
+            style && style[0] !== "none" ? `, leaning ${style[1].toLowerCase()}` : ""
+          }.${draft.pins.length ? " Your pinned pieces stayed in place." : ""}`,
+        );
+      } else {
+        notice = draft.items.length && draft.items.every((i) =>
             draft.pins.includes(i.id)
           )
           ? "Everything available is pinned. Unpin an item to get alternatives."
-          : "No other compatible pieces in this wardrobe. You can still save this look or choose items manually.";}
+          : "No other compatible pieces in this wardrobe. You can still save this look or choose items manually.";
+      }
     } catch {
       draft = before;
       notice =
@@ -840,7 +1018,7 @@
       return null;
     }
     const ranked = [...candidates, current].sort((a, b) =>
-      pieceScore(b, draft.answers) - pieceScore(a, draft.answers) ||
+      itemScore(b) - itemScore(a) ||
       a.id.localeCompare(b.id)
     );
     const next = ranked[(ranked.indexOf(current) + 1) % ranked.length];
@@ -1087,7 +1265,7 @@
     const statusNote = draft.readOnly
       ? ""
       : source === "sample"
-      ? "Sample looks save as ideas, kept apart from your own saved looks."
+      ? "Saves as a sample idea, apart from your own looks."
       : `${
         partial && draft.items.length ? "Partial look; you can save it as it is. " : ""
       }Drafts last for this session only. Save before closing.`;
