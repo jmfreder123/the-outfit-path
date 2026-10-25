@@ -129,18 +129,6 @@ button.flatlay-piece {
   text-align: center;
 }
 
-.flatlay-pin {
-  position: absolute;
-  z-index: 20;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  border-radius: 50%;
-  background: #f2eee6;
-  box-shadow: 0 0 0 2px rgba(29, 29, 27, 0.7), 0 1px 4px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
 .flatlay-menu {
   position: absolute;
   z-index: 40;

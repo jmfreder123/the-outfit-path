@@ -313,7 +313,7 @@ for (
   )
 ) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
-// Flat-lay board: body order, real-world scale, pin badges, piece menu, swap.
+// Flat-lay board: body order, real-world scale, piece menu, swap.
 {
   const L = sandbox.window.qa.layout(run(`[
     window.qa.sample('demo-cream-merino-knit'),
@@ -343,7 +343,7 @@ assert(!src.includes("addEventListener('drag"));
   const before = writes;
   let html = run("renderBuilder()");
   assert.equal((html.match(/data-board-piece=/g) || []).length, 4);
-  assert.equal((html.match(/class="flatlay-pin"/g) || []).length, 4, "one badge per pinned piece");
+  assert(!html.includes("flatlay-pin"), "no pin marks on the board; pin state is in the menu and list");
   assert(!html.includes("flatlay-menu"));
   click({ boardPiece: "demo-rust-blazer" }, [".flatlay-piece"]);
   assert.equal(state().boardMenu, "demo-rust-blazer");
@@ -354,7 +354,6 @@ assert(!src.includes("addEventListener('drag"));
   assert(!state().draft.pins.includes("demo-rust-blazer"), "Unpin from the menu");
   assert(state().draft.items.some((i) => i.id === "demo-rust-blazer"), "Unpin keeps the piece");
   assert.equal(state().boardMenu, "demo-rust-blazer", "menu stays open after Unpin");
-  assert.equal((run("renderBuilder()").match(/class="flatlay-pin"/g) || []).length, 3);
   for (const r of listeners.get("keydown")) r.h({ key: "Escape" });
   assert.equal(state().boardMenu, null, "Escape closes the menu");
   // Swap keeps the pin state and changes only that piece.
@@ -391,5 +390,5 @@ assert(!src.includes("addEventListener('drag"));
 }
 
 console.log(
-  "PASS: flat-lay order/scale/pins/menu/swap; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
+  "PASS: flat-lay order/scale/menu/swap; tap/pin/unpin/remove; confirmed conflicts; pinned completion; source isolation; no implicit preference writes; dated draft round trips; save failure/retry/update/read-only; undated retention; local dates; image parity; account draft reset.",
 );

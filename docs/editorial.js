@@ -290,26 +290,24 @@
   // cm (the other side comes from the photo's own proportions) and the
   // garment's bounds inside the 1254px source image. The bounds trim only
   // transparent margin; no garment detail is cropped, stretched or recoloured.
-  // t and b are the garment's left/right edges (as fractions of its width) at
-  // 15% and 90% of its height, used to place pin badges on the garment itself.
   const SOURCE_PX = 1254;
   const assetShape = {
-    "ankle-boots": { w: 32, box: [218, 306, 1052, 971], t: [0.376, 0.946], b: [0.257, 0.74] },
-    "blazer": { w: 58, box: [109, 64, 1146, 1184], t: [0.167, 0.83], b: [0.04, 0.956] },
-    "charcoal-trousers": { h: 104, box: [336, 37, 919, 1216], t: [0.081, 0.919], b: [0.009, 0.991] },
-    "chunky-sneakers": { w: 36, box: [9, 98, 1246, 1145], t: [0.343, 0.93], b: [0.297, 0.76] },
-    "cobalt-hoodie": { w: 66, box: [54, 37, 1208, 1199], t: [0.324, 0.671], b: [0.008, 0.987] },
-    "cream-knit": { w: 60, box: [59, 129, 1195, 1146], t: [0.178, 0.816], b: [0.083, 0.918] },
-    "crossbody-bag": { h: 46, box: [323, 128, 1054, 1118], t: [0.32, 0.992], b: [0.042, 0.8] },
-    "emerald-slip-dress": { h: 118, box: [301, 32, 971, 1228], t: [0.258, 0.703], b: [0.006, 0.984] },
-    "indigo-jeans": { h: 104, box: [317, 43, 938, 1210], t: [0.097, 0.903], b: [0.003, 0.997] },
-    "loafers": { h: 30, box: [197, 82, 1057, 1163], t: [0.107, 0.891], b: [0.092, 0.901] },
-    "patterned-midi-skirt": { h: 80, box: [61, 64, 1193, 1205], t: [0.284, 0.715], b: [0.041, 0.964] },
-    "rust-blazer": { w: 64, box: [42, 90, 1212, 1170], t: [0.227, 0.773], b: [0.067, 0.926] },
-    "sport-leggings": { h: 92, box: [389, 41, 865, 1214], t: [0.036, 0.964], b: [0.092, 0.899] },
-    "tote": { h: 44, box: [120, 64, 1134, 1190], t: [0.351, 0.653], b: [0.08, 0.91] },
-    "watch": { h: 24, box: [505, 34, 763, 1222], t: [0.271, 0.674], b: [0.287, 0.659] },
-    "white-shirt": { w: 62, box: [99, 90, 1155, 1168], t: [0.186, 0.809], b: [0.208, 0.789] },
+    "ankle-boots": { w: 32, box: [218, 306, 1052, 971] },
+    "blazer": { w: 58, box: [109, 64, 1146, 1184] },
+    "charcoal-trousers": { h: 104, box: [336, 37, 919, 1216] },
+    "chunky-sneakers": { w: 36, box: [9, 98, 1246, 1145] },
+    "cobalt-hoodie": { w: 66, box: [54, 37, 1208, 1199] },
+    "cream-knit": { w: 60, box: [59, 129, 1195, 1146] },
+    "crossbody-bag": { h: 46, box: [323, 128, 1054, 1118] },
+    "emerald-slip-dress": { h: 118, box: [301, 32, 971, 1228] },
+    "indigo-jeans": { h: 104, box: [317, 43, 938, 1210] },
+    "loafers": { h: 30, box: [197, 82, 1057, 1163] },
+    "patterned-midi-skirt": { h: 80, box: [61, 64, 1193, 1205] },
+    "rust-blazer": { w: 64, box: [42, 90, 1212, 1170] },
+    "sport-leggings": { h: 92, box: [389, 41, 865, 1214] },
+    "tote": { h: 44, box: [120, 64, 1134, 1190] },
+    "watch": { h: 24, box: [505, 34, 763, 1222] },
+    "white-shirt": { w: 62, box: [99, 90, 1155, 1168] },
   };
   // Tap area for each approved photo: the garment's outline sampled at 17
   // heights, so transparent corners never block a piece underneath.
@@ -360,8 +358,6 @@
         ...(typeSize[item.type] ||
           (SHOES.includes(item.type) ? { w: 32 } : { w: 40 })),
         box: [0, 0, SOURCE_PX, SOURCE_PX],
-        t: [0.2, 0.8],
-        b: [0.2, 0.8],
       };
     const [x0, y0, x1, y1] = shape.box,
       ratio = (x1 - x0) / (y1 - y0);
@@ -380,7 +376,7 @@
       bag = first("bag"),
       jewelry = first("jewelry");
     const placed = [];
-    const put = (item, cx, cy, z, rot = 0, badge = "tr") => {
+    const put = (item, cx, cy, z, rot = 0) => {
       const s = shapeOf(item);
       placed.push({
         item,
@@ -389,7 +385,6 @@
         y: cy - s.h / 2,
         z,
         rot,
-        badge,
       });
       return s;
     };
@@ -407,7 +402,7 @@
       }
       if (bottom) {
         const s = shapeOf(bottom);
-        put(bottom, 0, y + s.h / 2, 2, 0, "bl");
+        put(bottom, 0, y + s.h / 2, 2);
         width = Math.max(width, s.w);
         y += s.h;
       }
@@ -416,7 +411,7 @@
     if (layer) {
       const s = shapeOf(layer);
       if (width) {
-        put(layer, -width * (dress ? 0.28 : 0.42), s.h / 2 - 2, dress ? 5 : 3, -6, "tl");
+        put(layer, -width * (dress ? 0.28 : 0.42), s.h / 2 - 2, dress ? 5 : 3, -6);
       } else {
         put(layer, 0, s.h / 2, 3);
         width = s.w;
@@ -475,16 +470,7 @@
           esc(p.item.name)
         }">${art}</span>`;
     }).join("");
-    const badges = interactive
-      ? placed.filter((p) => pins.includes(p.item.id)).map((p) => {
-        const edge = p.badge === "bl" ? p.s.b[0] + 0.08 : p.badge === "tl" ? p.s.t[0] + 0.04 : p.s.t[1] - 0.04;
-        const bx = p.x + p.s.w * edge, by = p.y + p.s.h * (p.badge === "bl" ? 0.9 : 0.15);
-        return `<span class="flatlay-pin" aria-hidden="true" style="left:${pct((bx - x0) / W)};top:${
-          pct((by - y0) / H)
-        }"></span>`;
-      }).join("")
-      : "";
-    return `<div class="flatlay" style="--ar:${(W / H).toFixed(4)}">${pieces}${badges}</div>`;
+    return `<div class="flatlay" style="--ar:${(W / H).toFixed(4)}">${pieces}</div>`;
   }
   // Options for the piece chosen on the board, docked along the board's bottom.
   function pieceMenu(id) {
