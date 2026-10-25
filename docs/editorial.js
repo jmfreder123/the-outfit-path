@@ -2139,6 +2139,8 @@
     );
     resetSession();
   });
+  // Read-only view of the day selected in Plan, for the Diary's default date.
+  globalThis.outfitPathPlan = Object.freeze({ selectedDate: () => planningDate });
   document.addEventListener("error", (event) => {
     const img = event.target;
     if (img?.tagName !== "IMG" || !img.closest(".photo-frame")) return;

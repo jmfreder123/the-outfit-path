@@ -34,6 +34,7 @@
         { src: 'editorial.js' },
         { src: 'screening.js' },
         { src: 'diary-store.js' },
+        { src: 'diary.js' },
         { src: 'scanner.js' },
         { src: 'supabase-config.js' },
         {
