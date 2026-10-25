@@ -313,6 +313,18 @@ for (
   )
 ) assert(fs.existsSync("docs/" + path));
 assert(!src.includes("addEventListener('drag"));
+// Starter records are explained, not counted as owned or hidden.
+{
+  sandbox.window.qa.reset();
+  run("data=initial()");
+  click({ wardrobeSource: "owned" });
+  const html = run("renderBuilder()");
+  assert(html.includes("My wardrobe <span>0</span>"));
+  assert(html.includes("Closet also keeps 42 starter examples"), "starter records explained next to the empty owned count");
+  assert.equal(run("data.items.length"), 42, "no starter record removed");
+  sandbox.window.qa.reset();
+}
+
 // Week strip: Monday-first weeks, day taps keep per-date drafts and never save.
 {
   const week = (k) => JSON.parse(JSON.stringify(sandbox.window.qa.week(k)));

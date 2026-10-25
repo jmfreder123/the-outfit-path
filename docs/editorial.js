@@ -909,6 +909,18 @@
         }</p>`
     }</div>`;
   }
+  // Untouched starter records stay in Closet but are not counted as the
+  // person's own clothes until edited or deliberately added.
+  function starterNote() {
+    const starters = data.items.filter((i) =>
+      i.id.startsWith("starter-") && !owned().some((o) => o.id === i.id)
+    ).length;
+    return starters
+      ? `Only your own pieces are suggested here. Closet also keeps ${starters} starter example${
+        starters === 1 ? "" : "s"
+      }; they count as yours once you edit one or add your own.`
+      : "Only your available pieces are suggested.";
+  }
   function wardrobePane() {
     const list = pool().filter(filterMatch);
     const inLook = (id) => draft.items.some((p) => p.id === id);
@@ -976,7 +988,7 @@
     }<p class="editorial-sample-note plan-note">${
       source === "sample"
         ? "Samples are fictional and stay separate from your closet. Sample looks aren't saved to your lookbook."
-        : "Only your available pieces are suggested. Existing starter records are preserved in Closet."
+        : starterNote()
     }</p></section>`;
   }
   function renderSimpleBuilder() {
@@ -1024,7 +1036,7 @@
       notice
         ? `<div class="editorial-status plan-notice" role="status">${
           esc(notice)
-        } <button data-dismiss>Dismiss</button></div>`
+        } <button class="plan-dismiss" data-dismiss aria-label="Dismiss message">×</button></div>`
         : ""
     }${figureBoard(draft.items)}${
       pendingReplacement
