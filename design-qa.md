@@ -53,6 +53,13 @@ The browser QA session can render and display implementation captures, but the c
 - PASS: changing optional Style recomputes the suggestion when suitable choices exist. Under Business Casual, the live local preview changed from cream knit + indigo jeans (No preference), to emerald slip dress (Feminine), cream knit + black trousers (Masculine), and cobalt hoodie + sport leggings (Androgynous). These are suggestion weights only; the visible wardrobe catalog remains unchanged.
 - PASS: the preview explicitly labels fictional catalog output as a demo. Once at least one real user-added item exists, the preview uses only real available pieces from that account and reports missing categories instead of filling gaps with unowned samples.
 - PASS: selector changes after generating a result create a new unsaved suggestion. They do not rewrite an existing saved Lookbook record.
+- PASS: the live Sporty source truthfully reports when Feminine, Masculine, or Androgynous has no suitable alternative and leaves the composition unchanged instead of manufacturing variety. The same live session confirmed meaningful Style changes under Business Casual, where relevant candidates exist.
+- PASS: **Choose myself** shows only explicitly selected available closet pieces. **Suggest a look** uses local wardrobe rules and the existing optional on-device rating model. **Mix & match** preserves locked user choices and fills only open slots. The UI does not describe these rule-based suggestions as generative AI.
+- PASS: native desktop drag/drop source and target events are covered by a DOM regression that validates garment categories. **Use in look** supplies the same action for touch and keyboard users; the connected browser passed live keyboard selection and removal, and hybrid pieces can be locked or unlocked.
+- BLOCKED for a live automated pointer-drag proof: the connected browser controller's coordinate drag did not emit an HTML5 `drop` event. It also left the composition unchanged, so no false pass is recorded. A human pointer-drag remains the one manual interaction check; the fully tested Use button is the supported fallback.
+- PASS: an explicitly added fictional demo becomes one labeled closet copy. Unadded demos cannot be dragged or manually selected, and no mode silently imports the catalog.
+- PASS: the wardrobe panel shown in the user-supplied reference is ordinary builder UI, not an age/auth/MFA gate. It now has an obvious close button, closes with Escape, returns focus to **Open wardrobe**, and preserves the unsaved composition.
+- PASS: planner and Lookbook now include previous/next day, Today, and a calendar picker. Dates are built from the browser's local calendar fields rather than UTC string slicing. Date navigation does not save or overwrite a look; new saves carry their selected planning date, multiple looks may share a date, and old undated looks remain explicitly undated.
 
 ## Reference fidelity and remaining gaps
 
@@ -82,6 +89,7 @@ No app-origin exception was observed. Two identical asynchronous-listener errors
 - The initial redesign mapped rich assets only in catalog cards; the right-side board retained the older flat-art path and omitted layers and jewelry. The board now renders every supported slot through the shared image/photo renderer.
 - Occasion and Style previously updated copy and metadata without replacing the preview's selected item IDs. The preview now uses deterministic, occasion-aware ranking, and generated results request a fresh unsaved suggestion on selector change.
 - Business and Business Casual had shared the same legacy `work` value. A separate presentation-level occasion theme now supplies distinct ranking biases while preserving the existing six-step answer and learning model.
+- The user's inert-Style report was reproduced specifically under Sporty. Its eligible source contained only one suitable top, bottom, and shoe combination, so every preference correctly converged on the same item IDs. The prior UI gave no feedback and looked broken. It now distinguishes “ranking changed” from “no different suitable pieces,” while preserving strict occasion suitability and never introducing unowned items.
 
 ## Automated checks
 

@@ -105,6 +105,7 @@
         answers: cleanAnswers(look.answers),
         created: look.created,
         rating: look.rating,
+        ...(/^\d{4}-\d{2}-\d{2}$/.test(look.plannedDate || '') ? { plannedDate: look.plannedDate } : {}),
         ...(typeof look.name === 'string' ? { name: look.name } : {})
       })),
       ratings: (source.ratings || []).map(rating => ({

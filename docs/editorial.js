@@ -79,6 +79,48 @@
     'demo-black-crossbody'
   ];
   let editorialFilter = 'all';
+  let wardrobeOpen = true;
+  let editorialMode = 'suggest';
+  let manualSelection = {};
+  let lockedSlots = new Set();
+  let suggestionVariant = 0;
+  let editorialStatus = '';
+  let pendingFocus = '';
+
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function dateFromKey(key) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+    if (!match) return null;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+    return localDateKey(date) === key ? date : null;
+  }
+
+  function shiftDate(key, days) {
+    const date = dateFromKey(key) || new Date();
+    date.setDate(date.getDate() + days);
+    return localDateKey(date);
+  }
+
+  function dateLabel(key) {
+    const date = dateFromKey(key);
+    if (!date) return 'Date not recorded';
+    if (key === localDateKey()) return 'Today';
+    return date.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric'});
+  }
+
+  let planningDate = localDateKey();
+  const baseGenerate = generate;
+  generate = function editorialDatedGenerate(answerSet = answers) {
+    const generated = baseGenerate(answerSet);
+    if (generated) generated.plannedDate = planningDate;
+    return generated;
+  };
 
   const baseGarmentArt = garmentArt;
   garmentArt = function editorialGarmentArt(item) {
@@ -148,11 +190,13 @@
   };
 
   function rankedPick(pool, predicate, answerSet, bonus = () => 0) {
-    return pool.filter(predicate).sort((a, b) => pieceScore(b, answerSet) + bonus(b) - pieceScore(a, answerSet) - bonus(a) || a.id.localeCompare(b.id))[0];
+    const ranked = pool.filter(predicate).sort((a, b) => pieceScore(b, answerSet) + bonus(b) - pieceScore(a, answerSet) - bonus(a) || a.id.localeCompare(b.id));
+    const limit = Math.min(2, ranked.length);
+    return ranked[limit ? suggestionVariant % limit : 0];
   }
 
   function previewContext(answerSet = answers) {
-    const actual = data.items.filter(item => item.available && !item.id.startsWith('starter-') && !item.id.startsWith('demo-'));
+    const actual = data.items.filter(item => item.available && (!item.id.startsWith('starter-') || item.ownedCopy));
     const exactStarterIds = new Set(['starter-6', 'starter-15', 'starter-20', 'starter-33']);
     const pool = actual.length
       ? actual
@@ -202,8 +246,90 @@
     };
   }
 
+  const outfitSlots = [
+    ['shape', 'Dress or bottom'],
+    ['top', 'Top'],
+    ['shoes', 'Shoes'],
+    ['layer', 'Layer'],
+    ['bag', 'Bag'],
+    ['jewelry', 'Jewelry']
+  ];
+
+  function slotForItem(item) {
+    if (!item) return '';
+    if (['dress', 'skirt', 'pants'].includes(item.type)) return 'shape';
+    if (SHOES.includes(item.type)) return 'shoes';
+    return ['top', 'layer', 'bag', 'jewelry'].includes(item.type) ? item.type : '';
+  }
+
+  function slotAssignments(items) {
+    const assignments = {};
+    items.forEach(item => {
+      const slot = slotForItem(item);
+      if (slot && !assignments[slot]) assignments[slot] = item;
+    });
+    return assignments;
+  }
+
+  function selectedClosetItem(slot) {
+    return data.items.find(item => item.available && item.id === manualSelection[slot]);
+  }
+
+  function manualItems() {
+    const items = outfitSlots.map(([slot]) => selectedClosetItem(slot)).filter(Boolean);
+    const shape = items.find(item => slotForItem(item) === 'shape');
+    return shape?.type === 'dress' ? items.filter(item => item.type !== 'top') : items;
+  }
+
+  function hybridContext(answerSet = answers) {
+    const lockedShape = lockedSlots.has('shape') ? selectedClosetItem('shape') : null;
+    const direction = lockedShape ? {...answerSet, shape:lockedShape.type} : answerSet;
+    const suggestion = previewContext(direction);
+    const assignments = slotAssignments(suggestion.items);
+    lockedSlots.forEach(slot => {
+      const item = selectedClosetItem(slot);
+      if (item) assignments[slot] = item;
+    });
+    if (assignments.shape?.type === 'dress') delete assignments.top;
+    const items = outfitSlots.map(([slot]) => assignments[slot]).filter(Boolean);
+    return {
+      items,
+      mode: suggestion.mode,
+      message: `Mix & match · ${lockedSlots.size} chosen piece${lockedSlots.size === 1 ? '' : 's'} locked; local rules fill the rest. ${suggestion.message}`
+    };
+  }
+
+  function outfitContext(answerSet = answers) {
+    if (editorialMode === 'manual') {
+      const items = manualItems();
+      return {items, mode:'closet', message:items.length ? 'Choose myself · only the pieces you select appear here.' : 'Choose myself · drag a closet piece into a slot or use its “Use in look” button.'};
+    }
+    if (editorialMode === 'hybrid') return hybridContext(answerSet);
+    const suggestion = previewContext(answerSet);
+    return {...suggestion, message:`Rule-based suggestion · ${suggestion.message}`};
+  }
+
+  function placeClosetItem(itemId, requestedSlot = '') {
+    const item = data.items.find(candidate => candidate.id === itemId && candidate.available);
+    if (!item) {
+      editorialStatus = 'Add that demo to your closet before using it in an outfit.';
+      return false;
+    }
+    const slot = slotForItem(item);
+    if (!slot || requestedSlot && requestedSlot !== slot) {
+      editorialStatus = requestedSlot ? `${item.name} does not fit the ${outfitSlots.find(([id]) => id === requestedSlot)?.[1]?.toLowerCase() || requestedSlot} slot.` : 'That piece cannot be placed in this outfit.';
+      return false;
+    }
+    manualSelection[slot] = item.id;
+    if (slot === 'shape' && item.type === 'dress') delete manualSelection.top;
+    lockedSlots.add(slot);
+    if (editorialMode === 'suggest') editorialMode = 'hybrid';
+    editorialStatus = `${item.name} added to the ${outfitSlots.find(([id]) => id === slot)[1].toLowerCase()} slot.`;
+    return true;
+  }
+
   previewItems = function editorialPreviewItems() {
-    return previewContext().items;
+    return outfitContext().items;
   };
 
   function filterMatch(item) {
@@ -246,17 +372,57 @@
     </div>`;
   }
 
+  function dateControls(context = 'planner') {
+    return `<div class="editorial-date-nav" aria-label="${context === 'lookbook' ? 'Browse lookbook by date' : 'Plan outfit date'}">
+      <button data-date-shift="-1" aria-label="Previous day">←</button>
+      <label><span>${context === 'lookbook' ? 'Looking at' : result ? data.looks.some(look => look.id === result.id) ? 'Plan another date (saved look unchanged)' : 'Unsaved look for' : 'Planning for'}</span>
+        <input type="date" name="planning-date" value="${esc(planningDate)}">
+      </label>
+      <button data-date-today ${planningDate === localDateKey() ? 'disabled' : ''}>Today</button>
+      <button data-date-shift="1" aria-label="Next day">→</button>
+    </div>`;
+  }
+
+  function modeControls() {
+    const modes = [
+      ['manual', 'Choose myself'],
+      ['suggest', 'Suggest a look'],
+      ['hybrid', 'Mix & match']
+    ];
+    return `<div class="editorial-modes" role="group" aria-label="How to build this outfit">
+      ${modes.map(([id, label]) => `<button data-editorial-mode="${id}" class="${editorialMode === id ? 'active' : ''}" aria-pressed="${editorialMode === id}">${label}</button>`).join('')}
+      ${editorialMode !== 'manual' ? '<button data-suggest-again class="editorial-suggest-again">Suggest another</button>' : ''}
+      <p>Suggestions use local wardrobe rules${data.learning && data.ratings.length ? ' plus your on-device rating model' : ''}; they are not generative AI.</p>
+    </div>`;
+  }
+
+  function slotMarkup(items) {
+    const assignments = slotAssignments(items);
+    return `<div class="editorial-outfit-slots" aria-label="Outfit slots">
+      ${outfitSlots.map(([slot, label]) => {
+        const item = assignments[slot];
+        const locked = lockedSlots.has(slot) && selectedClosetItem(slot)?.id === item?.id;
+        return `<div class="editorial-outfit-slot ${item ? 'has-item' : ''} ${locked ? 'is-locked' : ''}" data-outfit-slot="${slot}" tabindex="0" role="group" aria-label="${esc(label)} slot${item ? `: ${esc(item.name)}` : ', empty'}">
+          <span>${esc(label)}</span>
+          <strong>${item ? esc(item.name) : 'Drop or choose a piece'}</strong>
+          ${item && editorialMode !== 'suggest' ? `<span class="editorial-slot-actions"><button data-remove-slot="${slot}" aria-label="Remove ${esc(item.name)}">Remove</button>${editorialMode === 'hybrid' ? `<button data-toggle-lock="${slot}" aria-pressed="${locked}">${locked ? 'Unlock' : 'Lock'}</button>` : ''}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
   function wardrobeCard(item) {
     const sample = item.id.startsWith('starter-') || item.id.startsWith('demo-');
     if (item.catalogSample) return `<article class="editorial-piece editorial-demo">
       <span class="editorial-piece-art">${garmentArt(item)}</span>
       <span class="editorial-piece-copy"><strong>${esc(item.name)}</strong><small>Demo · ${esc(TYPES[item.type] || item.type)}</small></span>
-      <button class="editorial-demo-add" data-demo-add="${esc(item.id)}">Add sample to closet</button>
+      <button class="editorial-demo-add" data-demo-add="${esc(item.id)}">Add sample to closet</button><small class="editorial-drag-note">Add first to use in a look</small>
     </article>`;
-    return `<button class="editorial-piece ${item.available ? '' : 'is-unavailable'}" data-edit="${esc(item.id)}" aria-label="Edit ${esc(item.name)}">
+    return `<article class="editorial-piece ${item.available ? '' : 'is-unavailable'}" data-outfit-item="${esc(item.id)}" draggable="${item.available}">
       <span class="editorial-piece-art">${garmentArt(item)}</span>
-      <span class="editorial-piece-copy"><strong>${esc(item.name)}</strong><small>${sample ? 'Sample · ' : ''}${esc(TYPES[item.type] || item.type)}</small></span>
-    </button>`;
+      <span class="editorial-piece-copy"><strong>${esc(item.name)}</strong><small>${sample ? 'Sample · ' : 'Closet · '}${esc(TYPES[item.type] || item.type)}</small></span>
+      <span class="editorial-piece-actions"><button data-use-item="${esc(item.id)}" ${item.available ? '' : 'disabled'}>Use in look</button><button data-edit="${esc(item.id)}">Edit</button></span>
+    </article>`;
   }
 
   function wardrobePane() {
@@ -267,8 +433,9 @@
     const shown = available.slice(0, 9);
     return `<section class="editorial-wardrobe" aria-labelledby="wardrobe-heading">
       <div class="editorial-wardrobe-heading">
-        <h1 id="wardrobe-heading">Your wardrobe. Your rules.</h1>
-        <p>Explore every style.</p>
+        <div><h1 id="wardrobe-heading">Your wardrobe. Your rules.</h1>
+        <p>Explore every style.</p></div>
+        <button class="editorial-panel-close" data-close-wardrobe aria-label="Close wardrobe panel">×</button>
       </div>
       <div class="editorial-filter-row" role="group" aria-label="Filter wardrobe pieces">
         ${wardrobeFilters.map(([value, label]) => `<button data-editorial-filter="${value}" class="${editorialFilter === value ? 'active' : ''}" aria-pressed="${editorialFilter === value}">${label}</button>`).join('')}
@@ -276,7 +443,7 @@
       <div class="editorial-piece-grid">${shown.map(wardrobeCard).join('')}</div>
       ${available.length > shown.length ? `<button class="editorial-view-all" data-view="closet">Open My Closet · ${data.items.length} pieces</button>` : ''}
       ${shown.length ? '' : '<p class="editorial-empty">No available pieces in this category. Try another filter or open My Closet.</p>'}
-      <p class="editorial-sample-note">Demo and Sample pieces are fictional catalog examples. A Demo joins only this browser closet after you choose Add; nothing is silently imported or uploaded as a photo.</p>
+      <p class="editorial-sample-note">Drag an available closet piece into an outfit slot, or use its button for touch and keyboard access. Demo pieces must be added first; nothing is silently imported or uploaded as a photo.</p>
     </section>`;
   }
 
@@ -304,15 +471,19 @@
   }
 
   function stagePreview() {
-    const preview = previewContext();
+    const preview = outfitContext();
     return `<section class="editorial-stage" aria-labelledby="look-heading">
       <div class="editorial-stage-top">
         <div><h1 id="look-heading">A look for today</h1><p>${esc(outfitSubtitle())}</p></div>
-        <button class="editorial-secondary" data-action="restart">Start over</button>
+        <div class="editorial-stage-actions">${wardrobeOpen ? '' : '<button class="editorial-secondary" data-open-wardrobe>Open wardrobe</button>'}<button class="editorial-secondary" data-action="restart">Start over</button></div>
       </div>
+      ${dateControls()}
+      ${modeControls()}
       ${selectorMarkup()}
       <div class="editorial-canvas" aria-label="Current outfit preview">${board(preview.items)}</div>
       <p class="editorial-preview-note ${preview.mode === 'demo' ? 'is-demo' : ''}">${esc(preview.message)}</p>
+      ${editorialStatus ? `<p class="editorial-status" role="status">${esc(editorialStatus)}</p>` : ''}
+      ${slotMarkup(preview.items)}
       ${decisionCard()}
     </section>`;
   }
@@ -322,7 +493,7 @@
     answers.occasionTheme ||= 'business-casual';
     answers.occasion ||= occasionToPath[answers.occasionTheme];
     answers.stylePreference ||= 'none';
-    return `<div class="editorial-shell">${stagePreview()}${wardrobePane()}</div>`;
+    return `<div class="editorial-shell ${wardrobeOpen ? '' : 'wardrobe-closed'}">${stagePreview()}${wardrobeOpen ? wardrobePane() : ''}</div>`;
   };
 
   renderResult = function editorialResult() {
@@ -330,17 +501,23 @@
     answerSet.occasionTheme ||= answers.occasionTheme || 'business-casual';
     answerSet.stylePreference ||= answers.stylePreference || 'none';
     const saved = data.looks.some(look => look.id === result.id);
-    return `<div class="editorial-shell result-state">
+    return `<div class="editorial-shell result-state ${wardrobeOpen ? '' : 'wardrobe-closed'}">
       <section class="editorial-stage" aria-labelledby="look-heading">
         <div class="editorial-stage-top">
           <div><h1 id="look-heading">A look for today</h1><p>${esc(outfitSubtitle(answerSet))}</p></div>
           <div class="editorial-result-buttons">
-            <button class="editorial-primary" data-action="savelook">${saved ? 'Saved to Lookbook' : 'Save this look'}</button>
+            ${wardrobeOpen ? '' : '<button class="editorial-secondary" data-open-wardrobe>Open wardrobe</button>'}
+            <button class="editorial-primary" data-action="savelook" ${result.items.length ? '' : 'disabled'}>${saved ? 'Saved to Lookbook' : 'Save this look'}</button>
             <button class="editorial-secondary" data-action="shuffle">Shuffle</button>
           </div>
         </div>
+        ${dateControls()}
+        ${modeControls()}
         ${selectorMarkup(answerSet)}
         <div class="editorial-canvas editorial-result-canvas">${board(result.items)}</div>
+        <p class="editorial-preview-note">${saved ? `Saved look · ${result.plannedDate ? `planned for ${dateLabel(result.plannedDate)}` : 'original date not recorded'}.` : `Unsaved composition · planned for ${dateLabel(result.plannedDate || planningDate)}.`}</p>
+        ${editorialStatus ? `<p class="editorial-status" role="status">${esc(editorialStatus)}</p>` : ''}
+        ${slotMarkup(result.items)}
         <div class="editorial-selected-list" aria-label="Selected pieces">
           ${result.items.map(item => `<div class="editorial-selected-piece">${garmentArt(item)}<span><strong>${esc(item.name)}</strong><small>${esc(item.color)} · ${esc(item.style)}</small></span><button data-swap="${esc(item.id)}">Swap</button></div>`).join('')}
         </div>
@@ -352,11 +529,151 @@
           <button data-action="print">Print</button>
         </div>
       </section>
-      ${wardrobePane()}
+      ${wardrobeOpen ? wardrobePane() : ''}
     </div>`;
   };
 
+  const lookbookCard = look => `<article class="look-card">${board(look.items)}<h3>${esc(look.name || lookTitle(look.answers))}</h3><p>${esc(labels[look.answers.occasion])} · ${look.plannedDate ? `planned ${esc(dateLabel(look.plannedDate))}` : `saved ${new Date(look.created).toLocaleDateString(undefined, {month:'short', day:'numeric'})}`}</p><div class="item-tools"><button class="btn" data-openlook="${esc(look.id)}">Open look →</button><button class="text-btn" data-removelook="${esc(look.id)}">Remove</button></div></article>`;
+
+  renderLooks = function editorialRenderLooks() {
+    const dated = data.looks.filter(look => look.plannedDate === planningDate).slice().reverse();
+    const undated = data.looks.filter(look => !look.plannedDate).slice().reverse();
+    return heading('THE ONES WORTH REPEATING', `Your little <em>lookbook.</em>`, 'Plan by local calendar day. More than one look can live on the same date.', '<button class="btn primary" data-action="newlook">Build a new look →</button>')+
+      dateControls('lookbook')+
+      `<section class="editorial-day-looks"><div class="editorial-lookbook-heading"><div><div class="eyebrow">${esc(dateLabel(planningDate))}</div><h2>${dated.length ? `${dated.length} saved look${dated.length === 1 ? '' : 's'}` : 'No saved looks for this day'}</h2></div><button class="btn" data-action="newlook">Plan this day</button></div>
+      ${dated.length ? `<div class="look-grid">${dated.map(lookbookCard).join('')}</div>` : '<p class="editorial-empty">Browse another day or build an outfit for this date. Navigating dates never saves or overwrites a look.</p>'}</section>`+
+      (undated.length ? `<section class="editorial-undated"><h2>Earlier saved looks</h2><p class="muted">These were saved before date planning existed, so no historical date has been guessed.</p><div class="look-grid">${undated.map(lookbookCard).join('')}</div></section>` : '');
+  };
+
+  function rerenderWithFocus(selector = '') {
+    render();
+    if (selector) queueMicrotask(() => document.querySelector(selector)?.focus({preventScroll:true}));
+  }
+
+  function syncUnsavedResult(answerSet = result?.answers || answers) {
+    if (!result) return;
+    const context = outfitContext(answerSet);
+    result = {id:uid(), items:JSON.parse(JSON.stringify(context.items)), answers:{...answerSet}, score:null, created:new Date().toISOString(), plannedDate:planningDate, rating:null};
+  }
+
   document.addEventListener('click', event => {
+    const next = event.target.closest('[data-action="next"]');
+    if (!next || step !== 5 || !['manual', 'hybrid'].includes(editorialMode)) return;
+    const context = outfitContext(answers);
+    if (!context.items.length) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      editorialStatus = 'Choose at least one available closet piece before creating this look.';
+      render();
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    result = {id:uid(), items:JSON.parse(JSON.stringify(context.items)), answers:{...answers}, score:null, created:new Date().toISOString(), plannedDate:planningDate, rating:null};
+    render();
+  }, true);
+
+  document.addEventListener('click', event => {
+    const openedLook = event.target.closest('[data-openlook]');
+    if (openedLook && result?.plannedDate) {
+      planningDate = result.plannedDate;
+      editorialMode = 'suggest';
+      editorialStatus = 'Opened the saved look on its recorded planning date.';
+      render();
+      return;
+    }
+    const resetBuilder = event.target.closest('[data-action="restart"], [data-action="newlook"]');
+    if (resetBuilder) {
+      manualSelection = {};
+      lockedSlots.clear();
+      suggestionVariant = 0;
+      editorialMode = 'suggest';
+      editorialStatus = 'Started a new unsaved composition.';
+      render();
+      return;
+    }
+    const closeWardrobe = event.target.closest('[data-close-wardrobe]');
+    if (closeWardrobe) {
+      wardrobeOpen = false;
+      editorialStatus = 'Wardrobe panel closed. Your current composition is unchanged.';
+      rerenderWithFocus('[data-open-wardrobe]');
+      return;
+    }
+    const openWardrobe = event.target.closest('[data-open-wardrobe]');
+    if (openWardrobe) {
+      wardrobeOpen = true;
+      editorialStatus = 'Wardrobe panel opened.';
+      rerenderWithFocus('[data-close-wardrobe]');
+      return;
+    }
+    const modeButton = event.target.closest('[data-editorial-mode]');
+    if (modeButton) {
+      editorialMode = modeButton.dataset.editorialMode;
+      if (editorialMode === 'manual' && result) {
+        result.items.forEach(item => {
+          if (data.items.some(candidate => candidate.id === item.id)) manualSelection[slotForItem(item)] = item.id;
+        });
+      }
+      editorialStatus = editorialMode === 'manual' ? 'Choose myself: only pieces you select will appear.' : editorialMode === 'hybrid' ? 'Mix & match: chosen pieces stay locked while local rules fill open slots.' : 'Suggest a look: local wardrobe rules choose the full composition.';
+      syncUnsavedResult();
+      render();
+      return;
+    }
+    const suggestAgain = event.target.closest('[data-suggest-again]');
+    if (suggestAgain) {
+      suggestionVariant++;
+      editorialStatus = 'A different locally ranked combination is shown where alternatives exist.';
+      syncUnsavedResult();
+      render();
+      return;
+    }
+    const useItem = event.target.closest('[data-use-item]');
+    if (useItem) {
+      if (placeClosetItem(useItem.dataset.useItem)) syncUnsavedResult();
+      render();
+      return;
+    }
+    const removeSlot = event.target.closest('[data-remove-slot]');
+    if (removeSlot) {
+      const slot = removeSlot.dataset.removeSlot;
+      const old = selectedClosetItem(slot);
+      delete manualSelection[slot];
+      lockedSlots.delete(slot);
+      editorialStatus = old ? `${old.name} removed from this unsaved composition.` : 'That slot is already empty.';
+      syncUnsavedResult();
+      render();
+      return;
+    }
+    const toggleLock = event.target.closest('[data-toggle-lock]');
+    if (toggleLock) {
+      const slot = toggleLock.dataset.toggleLock;
+      if (lockedSlots.has(slot)) {
+        lockedSlots.delete(slot);
+        delete manualSelection[slot];
+        editorialStatus = 'Slot unlocked; local rules may fill it again.';
+      } else if (selectedClosetItem(slot)) {
+        lockedSlots.add(slot);
+        editorialStatus = 'Chosen piece locked.';
+      }
+      syncUnsavedResult();
+      render();
+      return;
+    }
+    const dateShift = event.target.closest('[data-date-shift]');
+    if (dateShift) {
+      planningDate = shiftDate(planningDate, Number(dateShift.dataset.dateShift));
+      if (result && !data.looks.some(look => look.id === result.id)) result.plannedDate = planningDate;
+      editorialStatus = `Viewing ${dateLabel(planningDate)}. Nothing was saved or overwritten.`;
+      render();
+      return;
+    }
+    if (event.target.closest('[data-date-today]')) {
+      planningDate = localDateKey();
+      if (result && !data.looks.some(look => look.id === result.id)) result.plannedDate = planningDate;
+      editorialStatus = 'Returned to Today. Nothing was saved or overwritten.';
+      render();
+      return;
+    }
     const addDemo = event.target.closest('[data-demo-add]');
     if (addDemo) {
       const sample = demoCatalog.find(item => item.id === addDemo.dataset.demoAdd);
@@ -373,7 +690,7 @@
         return;
       }
       const {catalogSample, ...copy} = sample;
-      data.items.push({...copy});
+      data.items.push({...copy, ownedCopy:true});
       if (!save()) {
         data.items.pop();
         return;
@@ -390,36 +707,148 @@
   });
 
   document.addEventListener('change', event => {
+    if (event.target.name === 'planning-date') {
+      const chosen = dateFromKey(event.target.value);
+      if (!chosen) {
+        editorialStatus = 'Choose a valid calendar date.';
+      } else {
+        planningDate = localDateKey(chosen);
+        if (result && !data.looks.some(look => look.id === result.id)) result.plannedDate = planningDate;
+        editorialStatus = `Viewing ${dateLabel(planningDate)}. Navigation did not save or overwrite a look.`;
+      }
+      render();
+      return;
+    }
+    if (!['editorial-occasion', 'editorial-style'].includes(event.target.name)) return;
+    const before = (result ? result.items : outfitContext().items).map(item => item.id).join(',');
+    const saved = result && data.looks.some(look => look.id === result.id);
+    const nextAnswers = {...(result?.answers || answers)};
     if (event.target.name === 'editorial-occasion') {
-      answers.occasionTheme = event.target.value;
-      answers.occasion = occasionToPath[event.target.value] || 'everyday';
-      if (result) {
-        const saved = data.looks.some(look => look.id === result.id);
-        const nextAnswers = {...result.answers, occasionTheme: answers.occasionTheme, occasion: answers.occasion, stylePreference: answers.stylePreference || result.answers.stylePreference || 'none'};
-        const nextResult = generate(nextAnswers);
-        if (nextResult) {
-          result = nextResult;
-          answers = {...nextAnswers};
-          toast(saved ? 'New suggestion started. Your saved look is unchanged.' : 'Suggestion updated for the new occasion.');
-        }
-      }
-      render();
+      nextAnswers.occasionTheme = event.target.value;
+      nextAnswers.occasion = occasionToPath[event.target.value] || 'everyday';
+    } else {
+      nextAnswers.stylePreference = event.target.value;
+      nextAnswers.occasionTheme ||= answers.occasionTheme || 'business-casual';
+      nextAnswers.occasion ||= occasionToPath[nextAnswers.occasionTheme] || 'everyday';
     }
-    if (event.target.name === 'editorial-style') {
-      answers.stylePreference = event.target.value;
-      if (result) {
-        const saved = data.looks.some(look => look.id === result.id);
-        const nextAnswers = {...result.answers, stylePreference: answers.stylePreference, occasionTheme: answers.occasionTheme || result.answers.occasionTheme || 'business-casual'};
+    answers = {...answers, ...nextAnswers};
+    suggestionVariant = 0;
+    if (result) {
+      if (editorialMode === 'suggest') {
         const nextResult = generate(nextAnswers);
-        if (nextResult) {
-          result = nextResult;
-          answers = {...nextAnswers};
-          toast(saved ? 'New suggestion started. Your saved look is unchanged.' : 'Suggestion updated for the new style preference.');
-        }
+        if (nextResult) result = nextResult;
+      } else {
+        result.answers = {...nextAnswers};
+        syncUnsavedResult(nextAnswers);
       }
-      render();
     }
+    const after = (result ? result.items : outfitContext(nextAnswers).items).map(item => item.id).join(',');
+    const label = event.target.name === 'editorial-style'
+      ? styleOptions.find(([value]) => value === event.target.value)?.[1] || 'selected style'
+      : occasionOptions.find(([value]) => value === event.target.value)?.[1] || 'selected occasion';
+    if (editorialMode === 'manual') {
+      editorialStatus = `${label} recorded. Choose myself mode keeps your selected pieces unchanged.`;
+    } else if (before === after) {
+      editorialStatus = `No different suitable ${label} pieces are available in this source, so the composition is unchanged.`;
+    } else {
+      editorialStatus = `${label} changed the locally ranked composition.${saved ? ' The saved Lookbook record is unchanged.' : ''}`;
+    }
+    render();
   });
+
+  document.addEventListener('dragstart', event => {
+    const card = event.target.closest('[data-outfit-item]');
+    if (!card || card.getAttribute('draggable') !== 'true') return;
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('text/plain', card.dataset.outfitItem);
+    card.classList.add('is-dragging');
+  });
+
+  document.addEventListener('dragend', event => event.target.closest('[data-outfit-item]')?.classList.remove('is-dragging'));
+
+  document.addEventListener('dragover', event => {
+    const slot = event.target.closest('[data-outfit-slot]');
+    if (!slot) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    slot.classList.add('is-dragover');
+  });
+
+  document.addEventListener('dragleave', event => event.target.closest('[data-outfit-slot]')?.classList.remove('is-dragover'));
+
+  document.addEventListener('drop', event => {
+    const slot = event.target.closest('[data-outfit-slot]');
+    if (!slot) return;
+    event.preventDefault();
+    slot.classList.remove('is-dragover');
+    if (placeClosetItem(event.dataTransfer.getData('text/plain'), slot.dataset.outfitSlot)) syncUnsavedResult();
+    render();
+  });
+
+  let pointerDragItem = '';
+  document.addEventListener('pointerdown', event => {
+    const card = event.target.closest('[data-outfit-item][draggable="true"]');
+    if (!card || event.target.closest('button') || event.pointerType && event.pointerType !== 'mouse') return;
+    pointerDragItem = card.dataset.outfitItem;
+    card.classList.add('is-dragging');
+  });
+
+  document.addEventListener('pointermove', event => {
+    if (!pointerDragItem) return;
+    document.querySelectorAll('[data-outfit-slot]').forEach(slot => slot.classList.remove('is-dragover'));
+    document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-outfit-slot]')?.classList.add('is-dragover');
+  });
+
+  document.addEventListener('pointerup', event => {
+    if (!pointerDragItem) return;
+    const itemId = pointerDragItem;
+    pointerDragItem = '';
+    document.querySelectorAll('[data-outfit-item]').forEach(card => card.classList.remove('is-dragging'));
+    const slot = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-outfit-slot]');
+    document.querySelectorAll('[data-outfit-slot]').forEach(target => target.classList.remove('is-dragover'));
+    if (!slot) return;
+    if (placeClosetItem(itemId, slot.dataset.outfitSlot)) syncUnsavedResult();
+    render();
+  });
+
+  document.addEventListener('pointercancel', () => {
+    pointerDragItem = '';
+    document.querySelectorAll('.is-dragging, .is-dragover').forEach(node => node.classList.remove('is-dragging', 'is-dragover'));
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !wardrobeOpen || !document.querySelector('.editorial-wardrobe')) return;
+    wardrobeOpen = false;
+    editorialStatus = 'Wardrobe panel closed. Your current composition is unchanged.';
+    rerenderWithFocus('[data-open-wardrobe]');
+  });
+
+  function resetEditorialSessionState() {
+    editorialMode = 'suggest';
+    manualSelection = {};
+    lockedSlots.clear();
+    suggestionVariant = 0;
+    editorialStatus = '';
+    planningDate = localDateKey();
+  }
+
+  if (globalThis.outfitPathCloud) {
+    const baseSwitchScope = globalThis.outfitPathCloud.switchScope;
+    globalThis.outfitPathCloud.switchScope = async (...args) => {
+      resetEditorialSessionState();
+      return await baseSwitchScope(...args);
+    };
+    const baseCopyGuest = globalThis.outfitPathCloud.copyGuestToUser;
+    globalThis.outfitPathCloud.copyGuestToUser = async (...args) => {
+      resetEditorialSessionState();
+      return await baseCopyGuest(...args);
+    };
+    const baseReplaceData = globalThis.outfitPathCloud.replaceData;
+    globalThis.outfitPathCloud.replaceData = (...args) => {
+      resetEditorialSessionState();
+      return baseReplaceData(...args);
+    };
+  }
 
   render();
 })();

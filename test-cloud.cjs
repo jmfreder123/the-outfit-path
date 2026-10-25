@@ -16,6 +16,7 @@ const cloudProjection = sync.slice(sync.indexOf('const publicWardrobe'), sync.in
 assert.match(cloudProjection, /const cleanItem/);
 assert.match(cloudProjection, /occasionTheme/);
 assert.match(cloudProjection, /stylePreference/);
+assert.match(cloudProjection, /plannedDate/);
 assert.doesNotMatch(cloudProjection, /photoId|imageUrl|imageURL|dataUri|dataURL|base64|catalogSample/i);
 assert.doesNotMatch(config, /sb_secret_/);
 assert.doesNotMatch(config, /service_role/);
