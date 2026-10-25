@@ -32,6 +32,7 @@
       for (const script of [
         { src: 'app.js' },
         { src: 'editorial.js' },
+        { src: 'screening.js' },
         { src: 'scanner.js' },
         { src: 'supabase-config.js' },
         {

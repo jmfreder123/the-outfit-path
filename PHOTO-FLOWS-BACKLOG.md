@@ -2,6 +2,8 @@
 
 Status: design and security backlog only. The current app does **not** yet provide verified content screening, garment cutout editing, or a full-outfit photo diary.
 
+Update (stage 6a): item scans are now screened on the device before review with NSFWJS 4.4.0 (MIT) and its MobileNetV2 model, self-hosted in `docs/vendor/nsfwjs` with recorded checksums. Rule: Porn + Hentai at or above 0.40 is rejected, 0.25 to 0.40 is treated as unclear and not saved, and screening that cannot run fails closed. The thresholds are a starting point, not validated on real outfit photos; NSFWJS reports about 90% accuracy for this model, which is the vendor's figure. `test-screening.cjs` uses synthetic score vectors only.
+
 ## Two distinct photo flows
 
 | Flow | User intent | Saved image | Recognition behavior |
