@@ -115,7 +115,7 @@ The browser flow is now: 18+ self-attestation first; then a blocking invite-only
 
 The sign-in screen now includes **Forgot password?**. The user enters the invited account email and explicitly selects **Email password-reset link**. The app always gives a generic response, so it does not reveal whether an account exists. A valid recovery link returns to the approved origin and requires a new password of at least 12 characters before access; an enrolled authenticator still requires its second factor afterward. For the current local test, use `http://127.0.0.1:4173/`, not `localhost`. No recovery request was sent during implementation. The default mail service may deliver to the organization-member address `jfredericks4@gmail.com`; production invitations/recovery for other addresses still require reviewed custom SMTP.
 
-Optional authenticator-app MFA is implemented locally but is not yet live-enforced. The frontend blocks an enrolled AAL1 session, but the database must also enforce AAL2. After the frontend is deployed and two-account isolation passes, John reviews and runs `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql`. See `MFA-2FA-HANDOFF.md`. No factor was enrolled, removed, or recovered during implementation.
+Optional authenticator-app MFA is live and enforced in the database since 2026-10-26 (`supabase/migrations/20261026200000_fix_aal2_policy_lookup.sql`). See `MFA-2FA-HANDOFF.md` for what was verified.
 
 The original account-delivery blocker is resolved. The current results and remaining checks are:
 

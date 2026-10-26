@@ -47,7 +47,7 @@ Setup deliberately requires an account owner to complete the external steps:
 3. Never use a `service_role`/secret key or database password in frontend code. The client refuses known secret-key formats.
 4. Ensure Email authentication is enabled and add only the exact verified beta/production origin to the project's allowed redirect URLs.
 5. Test with two separate users before relying on it: each user must only be able to read and update their own row.
-6. After deploying the MFA UI and completing isolation tests, review and run `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql`. This restrictive policy makes AAL2 mandatory only for users who opted into a verified MFA factor.
+6. After deploying the MFA UI and completing isolation tests, review and run `supabase/migrations/20261026200000_fix_aal2_policy_lookup.sql` (it replaces `20261024202000_require_aal2_for_enrolled_users.sql`, which blocks every account). This restrictive policy makes AAL2 mandatory only for users who opted into a verified MFA factor. Test it locally first with `supabase/tests/aal2-policy-test.sh`.
 
 The migration enables and forces row-level security, denies anonymous table access, grants authenticated users only select/insert/update, and scopes every policy to `auth.uid() = user_id`. It does not create a Storage bucket or upload photos.
 

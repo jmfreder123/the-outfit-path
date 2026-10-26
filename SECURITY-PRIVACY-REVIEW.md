@@ -65,10 +65,10 @@ An independent review by a separate agent, given the code but not these findings
 | Severity | Item | Who |
 |---|---|---|
 | High | Deploy the current build. Until then the live site lacks screening and today's fixes. | John approves; then deploy and re-check headers live |
-| High | The authenticator database policy is not applied, so the second step is enforced only in the browser. | John runs the prepared SQL after the current build is live, then the listed tests |
+| Done 2026-10-26 | The authenticator database policy is applied (`20261026200000_fix_aal2_policy_lookup.sql`). The prepared version blocked every account's cloud copy and was replaced the same day; see `MFA-2FA-HANDOFF.md`. | — |
 | High | No way to delete a cloud copy or an account. | John decides: build deletion, or keep real personal data out of the beta |
 | High | Privacy notice still lacks postal address, jurisdiction, legal basis, transfer and retention terms. | John, ideally with a lawyer |
-| High | Invitations and reset emails reach only the Supabase organization member until custom email (SMTP) is set up. | John decides on an email provider |
+| Done 2026-10-26 | Custom email through Resend from jack@mail.theoutfitpath.com; invitations reach outside addresses. See `INVITE-ONLY-BETA.md`. | — |
 | Medium | Server-side password rules are not visible from outside. The app asks for 12 characters, but Supabase may accept shorter passwords through its API. | John checks Authentication settings: minimum length 12, and "Secure password change" on |
 | Medium | Styles still allow 'unsafe-inline'. Scripts do not. | Later code work |
 | Medium | Recognition downloads its runtime and model from third parties at use time. | Later: self-host, as was done for screening |

@@ -31,7 +31,7 @@ Step 2, production. After the preview checks pass, move the production branch to
 
 Cloudflare deploys it to theoutfitpath.com automatically. To undo, open the project's Deployments list in Cloudflare and use Rollback on the `dc42d5b` deployment.
 
-Step 3, after production is verified: run `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql` in the Supabase SQL Editor and repeat the checks listed in `MFA-2FA-HANDOFF.md`.
+Step 3, after production is verified: the authenticator database rule. Done on 2026-10-26 with `supabase/migrations/20261026200000_fix_aal2_policy_lookup.sql`; see `MFA-2FA-HANDOFF.md`.
 
 Each push publishes content and needs John's approval at the time it is run.
 
@@ -51,7 +51,7 @@ Each push publishes content and needs John's approval at the time it is run.
 ## Required safety gates before external invitations
 
 1. Deploy this protected branch to its Cloudflare `*.pages.dev` hostname and verify the headers, age gate, invite-only sign-in, password recovery, and TOTP challenge there.
-2. Owner reviews and runs `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql`; then verify enrolled AAL1 denial, enrolled AAL2 own-row access, unenrolled AAL1 own-row access, and cross-user denial.
+2. Owner reviews and runs the authenticator database rule; then verify enrolled AAL1 denial, enrolled AAL2 own-row access, unenrolled AAL1 own-row access, and cross-user denial. (Done 2026-10-26; see `MFA-2FA-HANDOFF.md`.)
 3. Verify direct public `signUp()` is rejected while **Allow new users to sign up** remains off, plus reused/forwarded invite and uninvited sign-in behavior.
 4. Approve and implement the cloud-copy and account deletion path, or keep real personal data out of the beta and retain the current explicit limitation.
 5. Finish the privacy notice/legal/retention decisions; retain the 18+ self-attestation limitation and invite-only operator procedure.

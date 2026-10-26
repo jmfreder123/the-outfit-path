@@ -1,6 +1,14 @@
 # Optional authenticator-app 2FA handoff
 
-Status: implemented and mock-tested locally; not enrolled for any user and not enforced in the live database.
+Status (2026-10-26): live and enforced in the database. One account (the owner's) has a verified authenticator.
+
+Database rule: `supabase/migrations/20261026200000_fix_aal2_policy_lookup.sql`. The first version (`20261024202000_require_aal2_for_enrolled_users.sql`) was applied on 2026-10-26 and blocked every account's cloud copy with "permission denied for table mfa_factors", because signed-in accounts may not read that table. The fix asks a helper function in the unexposed `private` schema instead. Both were run by John in the SQL Editor.
+
+Verified on 2026-10-26:
+
+- Live: the owner's account was asked for the code before the wardrobe opened, then read its own cloud copy. The test account (no authenticator) read cloud copies at aal1 and saw only its own (none). The helper function and `auth.mfa_factors` cannot be reached through the website's API (404/406).
+- Local Postgres (`supabase/tests/aal2-policy-test.sh`, 26 checks): reproduces the first version's error; with the fix, no-authenticator accounts read and write only their own copy at aal1; an account with an authenticator gets nothing and cannot insert, update or upsert at aal1, and only its own copy at aal2; unverified authenticators count as none; signed-out visitors reach nothing.
+- Not tested live: an account with an authenticator at aal1 being refused by the database (this needs the owner's code at the right moment). Covered by the local test.
 
 ## Behavior
 
@@ -23,9 +31,9 @@ This order avoids locking users out before the challenge UI is available:
 
 If an enrolled person loses the authenticator, password recovery alone will not bypass the factor. John must independently verify the person's identity and remove the verified factor in the protected Supabase Dashboard. After removal, the optional-enforcement policy permits AAL1 again. The app does not offer or promise recovery codes.
 
-## Required owner-run database step
+## Database step (done 2026-10-26)
 
-The frontend gate is not a security boundary by itself. The current two-account isolation checks passed with labeled synthetic rows. After the protected frontend is deployed and its MFA challenge is verified, John must review and run `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql` in the Supabase SQL Editor.
+The frontend gate is not a security boundary by itself. The current two-account isolation checks passed with labeled synthetic rows. The database rule is now applied; see the status at the top. On a new database, run both migrations in order, `20261024202000_require_aal2_for_enrolled_users.sql` then `20261026200000_fix_aal2_policy_lookup.sql`, or only the second (it drops and recreates the rule).
 
 The migration adds one **restrictive** RLS policy. It preserves rows and existing per-user ownership policies. For an account with at least one verified MFA factor, database access requires the JWT `aal` claim to be `aal2`; accounts without a verified factor may use either `aal1` or `aal2`.
 
