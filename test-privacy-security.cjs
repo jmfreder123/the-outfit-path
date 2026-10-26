@@ -84,4 +84,8 @@ assert.match(audit, /No self-service cloud-copy deletion or account deletion/);
 assert.match(audit, /no public deployment, push, or security-setting mutation/i);
 assert.doesNotMatch(`${privacy}\n${audit}`, /sb_secret_[A-Za-z0-9_-]+/i);
 
+// Stored photo addresses are escaped when drawn, even though only checked
+// JPEG data is stored.
+assert.match(fs.readFileSync('docs/editorial.js', 'utf8'), /src="\$\{\s*esc\(photoCache\.get\(item\.photoId\)\)\s*\}"/);
+
 console.log('PASS: privacy draft, CSP/SRI, local sign-out, generic errors, and launch blockers are documented.');

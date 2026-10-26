@@ -271,7 +271,7 @@
       }>${
         item.photoId && photoCache.has(item.photoId)
           ? `<img class="garment-photo" src="${
-            photoCache.get(item.photoId)
+            esc(photoCache.get(item.photoId))
           }" alt="${esc(item.name)}">`
           : `<span class="image-unavailable">${
             esc(item.name)
