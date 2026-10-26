@@ -1917,3 +1917,28 @@ header .header-help + .profile {
   padding: 10px 12px;
   background: var(--tile, #d9d2bd);
 }
+
+/* The suggestion notice sits at the bottom of the board, so the Refine
+   panel and the occasion menu (which open downward from the top) never
+   cover it. */
+.simple-builder .plan-notice {
+  top: auto;
+  right: auto;
+  bottom: 12px;
+  left: 12px;
+}
+
+@media (max-width: 700px) {
+  .simple-builder .plan-notice {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+  }
+}
+
+/* Keep the Style label clear of the menu's focus outline. */
+.simple-refine #refine-panel label {
+  display: grid;
+  gap: 8px;
+}
