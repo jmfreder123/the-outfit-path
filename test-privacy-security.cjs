@@ -12,7 +12,21 @@ const audit = fs.readFileSync('SECURITY-PRIVACY-REVIEW.md', 'utf8');
 assert.match(index, /Content-Security-Policy/);
 assert.match(index, /default-src 'self'/);
 assert.match(index, /object-src 'none'/);
-assert.match(index, /script-src 'self' https:\/\/cdn\.jsdelivr\.net/);
+// Outside scripts: only the pinned Supabase file and the pinned recognition
+// runtime folder, not all of jsDelivr. 'wasm-unsafe-eval' allows WebAssembly
+// (needed by the recognition runtime in its worker) without allowing eval().
+const scriptSrc = (policy) => policy.match(/script-src ([^;]+);/)[1].split(/\s+/);
+for (const policy of [index, headers]) {
+  assert.deepEqual(scriptSrc(policy), [
+    "'self'",
+    "'wasm-unsafe-eval'",
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.76.1/dist/umd/supabase.min.js',
+    'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/',
+  ]);
+  assert.doesNotMatch(policy, /'unsafe-eval'/);
+}
+assert(ageGate.includes("'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.76.1/dist/umd/supabase.min.js'"));
+assert(fs.readFileSync('docs/scanner-worker.js', 'utf8').includes("from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js'"));
 assert.match(index, /worker-src 'self' blob: https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@3\.8\.1\/dist\//);
 assert.doesNotMatch(index, /script-src[^;]+unsafe-inline/);
 assert.match(index, /style-src 'self' 'unsafe-inline'/);

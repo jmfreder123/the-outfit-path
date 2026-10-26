@@ -83,10 +83,10 @@ assert.equal(S.message({ ok: true }), "");
   assert(fs.existsSync("docs/vendor/nsfwjs/LICENSE-nsfwjs.txt"));
   assert(fs.existsSync("docs/vendor/nsfwjs/LICENSE-tensorflowjs-apache-2.0.txt"));
 
-  // Security policy unchanged: no eval, scripts only from self and the pinned CDN.
+  // Security policy: no eval, scripts only from self and the pinned CDN files.
   for (const policy of [fs.readFileSync("docs/index.html", "utf8"), fs.readFileSync("docs/_headers", "utf8")]) {
-    assert(!policy.includes("unsafe-eval"));
-    assert(/script-src 'self' https:\/\/cdn\.jsdelivr\.net;/.test(policy));
+    assert(!policy.includes("'unsafe-eval'"));
+    assert(/script-src 'self' 'wasm-unsafe-eval' https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\//.test(policy));
   }
 
   // Loaded after the age gate, before the item scanner.
