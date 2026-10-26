@@ -69,7 +69,7 @@ An independent review by a separate agent, given the code but not these findings
 | High | No way to delete a cloud copy or an account. | John decides: build deletion, or keep real personal data out of the beta |
 | High | Privacy notice still lacks postal address, jurisdiction, legal basis, transfer and retention terms. | John, ideally with a lawyer |
 | Done 2026-10-26 | Custom email through Resend from jack@mail.theoutfitpath.com; invitations reach outside addresses. See `INVITE-ONLY-BETA.md`. | — |
-| Medium | Server-side password rules are not visible from outside. The app asks for 12 characters, but Supabase may accept shorter passwords through its API. | John checks Authentication settings: minimum length 12, and "Secure password change" on |
+| Medium (accepted 2026-10-26) | Checked 2026-10-26 in Authentication, Email: minimum password length is 6, "Secure password change" is off, "Require current password when updating" is on, leaked-password protection is off. The app asks for 12 characters, but a password set through the API directly can be as short as 6. John chose to leave the minimum at 6. | Revisit before a wider beta |
 | Medium | Styles still allow 'unsafe-inline'. Scripts do not. | Later code work |
 | Medium | Recognition downloads its runtime and model from third parties at use time. | Later: self-host, as was done for screening |
 | Medium | Cloud copy is last-write-wins with no conflict check. | Later code work |
