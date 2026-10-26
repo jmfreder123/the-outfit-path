@@ -38,6 +38,10 @@ assert.match(headers, /frame-ancestors 'none'/);
 assert.match(headers, /X-Frame-Options: DENY/);
 assert.match(headers, /X-Content-Type-Options: nosniff/);
 assert.match(headers, /Permissions-Policy:/);
+// HTTPS only for a year on this host (not subdomains, not preloaded), and
+// no shared browsing context with pages from other sites.
+assert.match(headers, /\n  Strict-Transport-Security: max-age=31536000\n/);
+assert.match(headers, /\n  Cross-Origin-Opener-Policy: same-origin\n/);
 assert.match(headers, /X-Robots-Tag: noindex, nofollow/);
 assert.doesNotMatch(headers, /sb_secret_|service_role/i);
 
