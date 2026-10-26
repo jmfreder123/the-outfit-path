@@ -263,6 +263,12 @@
   }
   garmentArt = function editorialGarmentArt(item) {
     const asset = assetFor(item);
+    // A piece with no photo is drawn in its own color.
+    if (!asset && !item.photoId) {
+      return `<span class="photo-frame drawn-piece" role="img" aria-label="${
+        esc(item.name)
+      }">${art(item.type, /^#[0-9a-fA-F]{6}$/.test(item.hex) ? item.hex : "#d9d2bd")}</span>`;
+    }
     if (!asset) {
       return `<span class="photo-frame" ${
         item.photoId
@@ -2181,7 +2187,10 @@
     resetSession();
   });
   // Read-only view of the day selected in Plan, for the Diary's default date.
-  globalThis.outfitPathPlan = Object.freeze({ selectedDate: () => planningDate });
+  globalThis.outfitPathPlan = Object.freeze({
+    selectedDate: () => planningDate,
+    exampleCount: () => untouchedStarters().length,
+  });
   document.addEventListener("error", (event) => {
     const img = event.target;
     if (img?.tagName !== "IMG" || !img.closest(".photo-frame")) return;

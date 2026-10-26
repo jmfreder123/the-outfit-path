@@ -292,13 +292,14 @@ assert(
     `garmentArt({...data.items[0],photoId:'photo-fixture'}).includes('data:image/png;base64,fixture')`,
   ),
 );
-assert(run(`garmentArt(data.items[0]).includes('Image unavailable')`));
-assert(
-  run(
-    `garmentArt({...seed()[20],color:'pink',hex:'#c98989'}).includes('Image unavailable')`,
-  ),
-  "modified real item must not borrow mismatching catalog photo",
-);
+// A piece with no photo is drawn in its own color; a piece whose photo is
+// missing says so. Neither borrows a catalog photo.
+assert(run(`garmentArt({...data.items[0],photoId:undefined}).includes('drawn-piece')`));
+assert(run(`garmentArt({...data.items[0],photoId:'not-loaded'}).includes('Image unavailable')`));
+const edited = run(`garmentArt({...seed()[20],color:'pink',hex:'#c98989'})`);
+assert(edited.includes("drawn-piece") && edited.includes("#c98989"), "modified real item is drawn, not given the catalog photo");
+assert(!edited.includes("assets/design3"), "modified real item must not borrow mismatching catalog photo");
+assert(run(`garmentArt({...seed()[0],hex:'red;bad'})`).includes("#d9d2bd"), "only a valid color is drawn");
 const savedData = run("JSON.stringify(data)");
 sandbox.window.qa.reset();
 assert.equal(state().draft.items.length, 0);

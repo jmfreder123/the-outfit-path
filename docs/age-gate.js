@@ -32,6 +32,7 @@
       for (const script of [
         { src: 'app.js' },
         { src: 'editorial.js' },
+        { src: 'closet.js' },
         { src: 'screening.js' },
         { src: 'diary-store.js' },
         { src: 'diary.js' },

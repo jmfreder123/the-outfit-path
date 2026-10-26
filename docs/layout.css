@@ -1507,3 +1507,218 @@ header nav button:not(.active) {
   border: 0;
   cursor: pointer;
 }
+
+/* Pieces with no photo are drawn in their own color. */
+.drawn-piece svg {
+  width: 72%;
+  height: 72%;
+  max-width: 180px;
+  max-height: 180px;
+}
+
+/* Closet page */
+.closet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 8px;
+}
+
+.closet-head p {
+  margin-bottom: 0;
+}
+
+.closet-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.closet-examples {
+  max-width: 760px;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  color: #4b4842;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #fffdf9;
+  border: 1px solid #e4ded3;
+  border-radius: 12px;
+}
+
+.closet-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 20px;
+}
+
+.closet-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.closet-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  color: #1d1d1b;
+  font: 400 16px/1.4 var(--sans);
+  background: #fffdf9;
+  border: 1px solid #d8d2c6;
+  border-radius: 10px;
+}
+
+.closet-count {
+  margin: 0;
+  color: #77736b;
+  font-size: 13px;
+}
+
+.closet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 18px;
+}
+
+.closet-chips button {
+  min-height: 36px;
+  padding: 0 14px;
+  color: #1d1d1b;
+  font: inherit;
+  font-size: 13px;
+  background: none;
+  border: 1px solid #d8d2c6;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.closet-chips button.active {
+  color: #f5f1ea;
+  background: #1d1d1b;
+  border-color: #1d1d1b;
+}
+
+.closet-grid-new {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.closet-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fffdf9;
+  border: 1px solid #e4ded3;
+  border-radius: 16px;
+}
+
+.closet-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  padding: 14px;
+  background: #ebe6dc;
+}
+
+.closet-art .photo-frame,
+.closet-art .garment-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.closet-art .image-unavailable {
+  display: grid;
+  gap: 4px;
+  color: #4b4842;
+  font-size: 13px;
+  text-align: center;
+}
+
+.closet-card.is-away .closet-art > :first-child {
+  opacity: 0.45;
+}
+
+.closet-away {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  color: #4b4842;
+  font-size: 12px;
+  background: #fffdf9;
+  border-radius: 999px;
+}
+
+.closet-body {
+  padding: 10px 12px 4px;
+}
+
+.closet-body h3 {
+  margin: 0;
+  font: 400 18px/1.25 var(--serif);
+}
+
+.closet-body p {
+  margin: 4px 0 0;
+  color: #77736b;
+  font-size: 13px;
+}
+
+.closet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: auto;
+  padding: 8px 12px 12px;
+}
+
+.closet-actions button {
+  min-height: 32px;
+  padding: 0;
+  color: #1d1d1b;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.closet-hint {
+  margin: 20px 0 0;
+  color: #77736b;
+  font-size: 13px;
+}
+
+.closet-empty p + p {
+  margin-top: -6px;
+}
+
+@media (max-width: 600px) {
+  .closet-grid-new {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .closet-body h3 {
+    font-size: 16px;
+  }
+
+  .closet-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+}
