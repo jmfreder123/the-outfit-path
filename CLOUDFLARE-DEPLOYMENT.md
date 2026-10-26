@@ -1,13 +1,41 @@
 # The Outfit Path — Cloudflare Pages deployment handoff
 
-Status: production-shaped static files and tests prepared locally; not pushed, deployed, connected, or published
+Status (2026-10-26): live at theoutfitpath.com from commit `dc42d5b`; the current build is committed locally and not pushed
 Intended domain: `theoutfitpath.com`
 Registrar/DNS currently observed: GoDaddy
 Hosting target: Cloudflare Pages free static hosting, to be created by the account owner
 
 Update, 2026-10-26: this file's "Verified current state" is out of date. A read-only check showed https://theoutfitpath.com/ served by Cloudflare with the `_headers` policy applied, running an older build (navigation: Outfit builder / My closet / Lookbook / My style). The redesign, on-device screening, the diary and the stage 7 fixes are local only. See the stage 7 section of `SECURITY-PRIVACY-REVIEW.md`.
 
-## Verified current state
+## Deploying the current build (prepared 2026-10-26)
+
+Checked read-only on 2026-10-26:
+
+- Cloudflare Pages project `the-outfit-path` is connected to GitHub `jmfreder123/the-outfit-path`. Production branch: `codex/supabase-wardrobe`. Automatic deployments: on. Build command: none. Output: `docs`. No variables or secrets. Domains: `the-outfit-path.pages.dev` plus one custom domain.
+- The live deployment is "Prepare secure invite-only wardrobe beta", commit `dc42d5b`, which is also what GitHub has on `codex/supabase-wardrobe`.
+- The current work is on the local branch `claude/flat-lay`. It contains `dc42d5b`, so it can be pushed as a fast-forward with no merge.
+- The commits since `dc42d5b` were checked for secrets: only the public Supabase publishable key and made-up test passwords appear. `CLAUDE-HANDOFF.md` is not committed and will not be pushed.
+- The repository is public, so pushing makes this branch's source visible on GitHub.
+
+Step 1, preview (does not change the live site). Push the branch as itself:
+
+    git push origin claude/flat-lay
+
+If preview deployments are on (Cloudflare's default for branches other than production; see Settings, Branch control), Cloudflare builds a preview at `https://claude-flat-lay.the-outfit-path.pages.dev`. Preview URLs are public but need an invited account to see a wardrobe, and `_headers` marks `*.pages.dev` as noindex. Password reset is turned off there on purpose: the app sends reset links only to theoutfitpath.com.
+
+Check on the preview: the age gate, sign-in, the authenticator code screen if one is enrolled, Plan, Closet, Saved looks, Diary (log, edit, delete), an item scan, Recognize, and the response headers (Strict-Transport-Security and Cross-Origin-Opener-Policy should now be present).
+
+Step 2, production. After the preview checks pass, move the production branch to the same commit:
+
+    git push origin claude/flat-lay:codex/supabase-wardrobe
+
+Cloudflare deploys it to theoutfitpath.com automatically. To undo, open the project's Deployments list in Cloudflare and use Rollback on the `dc42d5b` deployment.
+
+Step 3, after production is verified: run `supabase/migrations/20261024202000_require_aal2_for_enrolled_users.sql` in the Supabase SQL Editor and repeat the checks listed in `MFA-2FA-HANDOFF.md`.
+
+Each push publishes content and needs John's approval at the time it is run.
+
+## State recorded on 2026-10-24 (out of date)
 
 - The protected local build is served from `docs/` with no build step. `docs/_headers` now prepares CSP, clickjacking, MIME-sniffing, referrer, permissions, and `pages.dev` no-index headers for Cloudflare Pages.
 - `http://127.0.0.1:4173/` returned HTTP 200 and loaded the adults-only gate first.
