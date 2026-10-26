@@ -1,29 +1,32 @@
 # The Outfit Path — Invite-only beta runbook
 
-- Status (2026-10-26): live at theoutfitpath.com; public signup disabled and verified; invitation links now return to theoutfitpath.com; custom email (SMTP) not set up yet, so invitations reach only the Supabase organization member
-- Owner/inviter: John M. Fredericks
+- Status (2026-10-26): live at theoutfitpath.com; public signup disabled and verified; invitations go out through Resend from jack@mail.theoutfitpath.com and were verified end to end
+- Owner/inviter: John M. Fredericks ("Jack Fredericks" in emails)
 - Eligibility: adults age 18 and over only
 
 ## Current state and steps (2026-10-26)
 
 This section replaces the older notes below where they differ.
 
-- The current build is live at https://theoutfitpath.com (Cloudflare Pages, production branch `codex/supabase-wardrobe`). DNS for theoutfitpath.com is on Cloudflare (nameservers `rick` and `sandy.ns.cloudflare.com`). The domain had no MX or TXT records on 2026-10-26.
-- With John's approval, Claude changed Supabase Authentication, URL Configuration on 2026-10-26: Site URL is now `https://theoutfitpath.com`, and `https://theoutfitpath.com/` was added to Redirect URLs. `http://127.0.0.1:4173/` remains for local testing. Both values were confirmed after a reload. Before this, invitation and password-reset links pointed to the local test address.
+- The current build is live at https://theoutfitpath.com (Cloudflare Pages, production branch `codex/supabase-wardrobe`). DNS for theoutfitpath.com is on Cloudflare.
+- Supabase Authentication, URL Configuration: Site URL `https://theoutfitpath.com`; Redirect URLs `https://theoutfitpath.com/` and `http://127.0.0.1:4173/` (local testing). Changed by Claude with John's approval on 2026-10-26 and confirmed after a reload.
 - Public signup is off. A direct sign-up attempt on 2026-10-26 was refused with `signup_disabled`.
-- Email is still Supabase's built-in service: it sends only to members of the Supabase organization (currently jfredericks4@gmail.com), at most 2 emails an hour, and its templates cannot be edited. The current invitation reads: subject "You've been invited"; body "You've been invited to create an account. Follow the link below to accept." with an "Accept invitation" link. It does not name The Outfit Path.
 
-### Setting up Resend (free plan: 3,000 emails a month, 100 a day)
+### Email setup (done 2026-10-26)
 
-1. John creates a Resend account at resend.com.
-2. In Resend, Domains, add `theoutfitpath.com`. Because DNS is on Cloudflare, use Sign in to Cloudflare to add the records automatically, or add them by hand in Cloudflare DNS: an MX and a TXT record named `send`, and a TXT record named `resend._domainkey`, with the values Resend shows. Keep these records DNS only (not proxied). Wait until Resend shows the domain as verified.
-3. In Resend, create an API key with sending access only. Copy it once; do not paste it into chat, notes or code.
-4. In Supabase, Authentication, Emails, SMTP Settings: enable custom SMTP. Sender email `invites@theoutfitpath.com`, sender name `The Outfit Path`, host `smtp.resend.com`, port `465`, username `resend`, password the Resend API key. Save.
-5. Send one invitation to an address John controls and check that it arrives, the link opens https://theoutfitpath.com, and password setup works.
+- Provider: Resend, free plan (3,000 emails a month, 100 a day). Account owned by John.
+- Sending domain: `mail.theoutfitpath.com`, verified in Resend. Using a subdomain keeps the main domain free for other email later.
+- DNS records in Cloudflare, all DNS only (not proxied), added by Claude with John's approval:
+  - TXT `resend._domainkey.mail` (DKIM key from Resend)
+  - CNAME `rsend.mail` to `rsend.forge.rmta.net`
+  - CNAME `send.mail` to `send.forge.rmta.net`
+- Click and open tracking are off.
+- Resend API key "Supabase SMTP", sending access only. John created it and pasted it into Supabase himself. It is not stored in chat, notes or code.
+- Supabase Authentication, Emails, SMTP Settings: custom SMTP on; sender `jack@mail.theoutfitpath.com`, sender name `Jack Fredericks`, host `smtp.resend.com`, port `465`, username `resend`, password the API key.
+- Replies to jack@mail.theoutfitpath.com are not received; email receiving is not set up.
+- Every email Resend sends is listed under Resend, Emails, with its subject, delivery status and contents.
 
-Replies to `invites@theoutfitpath.com` are not received unless email receiving is set up separately.
-
-### Invitation email (paste into Authentication, Emails, Invite user once custom SMTP is on)
+### Invitation email (saved in Supabase, Authentication, Emails, Invite user)
 
 Subject:
 
@@ -32,16 +35,28 @@ Subject:
 Body:
 
     <h2>You're invited to The Outfit Path</h2>
-    <p>John Fredericks has invited you to try The Outfit Path, a private app for planning outfits from the clothes you own. It is a small, invite-only beta for adults 18 and over.</p>
+    <p>Jack Fredericks has invited you to try The Outfit Path, a private app for planning outfits from the clothes you own. It is a small, invite-only beta for adults 18 and over.</p>
     <p><a href="{{ .ConfirmationURL }}">Accept the invitation</a></p>
     <p>The link opens theoutfitpath.com, where you confirm you are 18 or older and choose a password. It is for you only, so please don't forward this email.</p>
     <p>If you weren't expecting this invitation, you can ignore this email.</p>
 
+Saved by Claude on 2026-10-26 and confirmed after a reload. After changing the template, wait a few minutes before inviting anyone: an invitation sent one minute after the save still used Supabase's default wording ("You've been invited").
+
+### Verified on 2026-10-26
+
+- Test invitation to jack@thefeedsackmag.com: delivered with the new subject and wording, from "Jack Fredericks" <jack@mail.theoutfitpath.com>. Supabase shows the account confirmed and signed in at 1:02 PM, through the live site.
+- Invitation to kealie.walker@gmail.com: first sent at 1:00 PM with the default wording, before the template change took effect. Re-sent with John's approval; Resend shows the second one delivered with the new subject. The link in the first email no longer works.
+
 ### Inviting a tester
 
 1. Confirm directly with the person that they are 18 or older.
-2. Supabase, Authentication, Users, Add user, Send invitation. Enter only their email and send.
-3. They open the link, confirm 18+, see "Finish setting up your account", set a password of at least 12 characters, and land in an empty closet with the introduction.
+2. Supabase, Authentication, Users, Add user, Send invitation. Enter only their email and choose Invite user.
+3. Check Resend, Emails: the message should show Delivered with the subject "You're invited to The Outfit Path beta".
+4. They open the link, confirm 18+, see "Finish setting up your account", set a password of at least 12 characters, and land in an empty closet with the introduction.
+
+### Re-sending an invitation
+
+If someone hasn't accepted yet (Supabase, Users, their row shows no "Confirmed at"), repeat step 2 above with the same email. Supabase sends a new invitation and the link in the earlier email stops working. Supabase refuses this for accounts that are already confirmed; those people use Forgot password on the sign-in screen instead.
 
 ## Verified live state
 
