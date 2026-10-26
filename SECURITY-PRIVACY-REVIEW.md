@@ -18,6 +18,7 @@ Not ready for a beta with people other than John. The code-level problems found 
 
 - theoutfitpath.com is served by Cloudflare and runs an older build: navigation reads Outfit builder / My closet / Lookbook / My style. None of the work from the redesign onward is live, including explicit-content screening, the diary and the fixes below. In the live build, item photos are saved without the explicit-content check.
 - Live headers (checked 2026-10-26): CSP with frame-ancestors 'none', X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer, Permissions-Policy. No Strict-Transport-Security and no Cross-Origin-Opener-Policy.
+- Direct sign-up through the Auth API, with John's permission, using a made-up example.com address (2026-10-26): refused with HTTP 422 `signup_disabled` ("Signups not allowed for this instance"). No user was returned or created.
 - Unknown paths (/.git/HEAD, /_headers, /README.md, /supabase/migrations/) return the app page, not repository files.
 - Live Supabase, read with the public key only: public signup disabled, email confirmation required, anonymous sign-ins off, email is the only provider. Anonymous read of wardrobe_documents is refused (HTTP 401, 42501). No storage buckets are visible anonymously. The schema listing requires a secret key.
 - `CLOUDFLARE-DEPLOYMENT.md` still describes the domain as parked; that is out of date.
@@ -71,7 +72,6 @@ An independent review by a separate agent, given the code but not these findings
 
 ### Not tested
 
-- A direct sign-up attempt against the API. Settings say signup is disabled; confirming needs an attempted account creation, which needs John's permission.
 - Physical phones, Safari on iPhone, HEIC photos, and camera capture with the current Permissions-Policy.
 - The explicit-content thresholds on real outfit photos.
 - The authenticator policy, recovery email delivery, and rate limits on the live project.
