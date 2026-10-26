@@ -1,8 +1,47 @@
 # The Outfit Path — Invite-only beta runbook
 
-- Status: public signup disabled and verified; Gmail and ASU test accounts confirmed; current two-account isolation checks passed with labeled synthetic rows; not deployed
+- Status (2026-10-26): live at theoutfitpath.com; public signup disabled and verified; invitation links now return to theoutfitpath.com; custom email (SMTP) not set up yet, so invitations reach only the Supabase organization member
 - Owner/inviter: John M. Fredericks
 - Eligibility: adults age 18 and over only
+
+## Current state and steps (2026-10-26)
+
+This section replaces the older notes below where they differ.
+
+- The current build is live at https://theoutfitpath.com (Cloudflare Pages, production branch `codex/supabase-wardrobe`). DNS for theoutfitpath.com is on Cloudflare (nameservers `rick` and `sandy.ns.cloudflare.com`). The domain had no MX or TXT records on 2026-10-26.
+- With John's approval, Claude changed Supabase Authentication, URL Configuration on 2026-10-26: Site URL is now `https://theoutfitpath.com`, and `https://theoutfitpath.com/` was added to Redirect URLs. `http://127.0.0.1:4173/` remains for local testing. Both values were confirmed after a reload. Before this, invitation and password-reset links pointed to the local test address.
+- Public signup is off. A direct sign-up attempt on 2026-10-26 was refused with `signup_disabled`.
+- Email is still Supabase's built-in service: it sends only to members of the Supabase organization (currently jfredericks4@gmail.com), at most 2 emails an hour, and its templates cannot be edited. The current invitation reads: subject "You've been invited"; body "You've been invited to create an account. Follow the link below to accept." with an "Accept invitation" link. It does not name The Outfit Path.
+
+### Setting up Resend (free plan: 3,000 emails a month, 100 a day)
+
+1. John creates a Resend account at resend.com.
+2. In Resend, Domains, add `theoutfitpath.com`. Because DNS is on Cloudflare, use Sign in to Cloudflare to add the records automatically, or add them by hand in Cloudflare DNS: an MX and a TXT record named `send`, and a TXT record named `resend._domainkey`, with the values Resend shows. Keep these records DNS only (not proxied). Wait until Resend shows the domain as verified.
+3. In Resend, create an API key with sending access only. Copy it once; do not paste it into chat, notes or code.
+4. In Supabase, Authentication, Emails, SMTP Settings: enable custom SMTP. Sender email `invites@theoutfitpath.com`, sender name `The Outfit Path`, host `smtp.resend.com`, port `465`, username `resend`, password the Resend API key. Save.
+5. Send one invitation to an address John controls and check that it arrives, the link opens https://theoutfitpath.com, and password setup works.
+
+Replies to `invites@theoutfitpath.com` are not received unless email receiving is set up separately.
+
+### Invitation email (paste into Authentication, Emails, Invite user once custom SMTP is on)
+
+Subject:
+
+    You're invited to The Outfit Path beta
+
+Body:
+
+    <h2>You're invited to The Outfit Path</h2>
+    <p>John Fredericks has invited you to try The Outfit Path, a private app for planning outfits from the clothes you own. It is a small, invite-only beta for adults 18 and over.</p>
+    <p><a href="{{ .ConfirmationURL }}">Accept the invitation</a></p>
+    <p>The link opens theoutfitpath.com, where you confirm you are 18 or older and choose a password. It is for you only, so please don't forward this email.</p>
+    <p>If you weren't expecting this invitation, you can ignore this email.</p>
+
+### Inviting a tester
+
+1. Confirm directly with the person that they are 18 or older.
+2. Supabase, Authentication, Users, Add user, Send invitation. Enter only their email and send.
+3. They open the link, confirm 18+, see "Finish setting up your account", set a password of at least 12 characters, and land in an empty closet with the introduction.
 
 ## Verified live state
 
