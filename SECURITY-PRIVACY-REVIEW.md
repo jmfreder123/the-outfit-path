@@ -37,6 +37,16 @@ Not ready for a beta with people other than John. The code-level problems found 
 | Low | Settings said the wardrobe and cloud row could not be opened without the authenticator. Data already in the browser is not encrypted, and the database rule is not applied. Found by the independent review. | Wording now says what the app does. | d8d5818 |
 | Low | Stored photo addresses were the one value written into the page unescaped. Not exploitable, since only checked JPEG data is stored. | Escaped. | 8d120b8 |
 
+### Preview deployment checked, 2026-10-26
+
+John pushed `claude/flat-lay` (df58dcc). Cloudflare built a preview at https://claude-flat-lay.the-outfit-path.pages.dev; production stayed on dc42d5b. Checked in Chrome on the preview:
+
+- Headers: the narrowed script policy with 'wasm-unsafe-eval', Strict-Transport-Security max-age=31536000, Cross-Origin-Opener-Policy same-origin, X-Frame-Options DENY, X-Robots-Tag noindex.
+- Signed out: the 18+ gate, then the invite-only sign-in screen. The Supabase library loaded with its integrity check under the narrowed policy.
+- Signed in (John signed in himself; no password was entered by Claude): Plan suggested a sample look; a diary entry with a made-up photo was saved, opened and deleted; an item scan reached the review screen; Recognize downloaded the pinned model and suggested "Cream sweater" in about 16 seconds, which confirms the WebAssembly fix; the item was not saved. Settings showed no password form and the authenticator as enabled.
+- Opening the preview with `#type=recovery` while signed in showed the wardrobe, not the password-setup screen.
+- Nothing was uploaded to the cloud copy.
+
 ### Checked and found sound
 
 - Text from people (piece names, notes, look and idea names, diary notes, email addresses, dates) is escaped before it is placed in the page, in editorial.js, diary.js, scanner.js and supabase-sync.js.
