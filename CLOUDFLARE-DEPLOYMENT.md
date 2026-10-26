@@ -5,6 +5,8 @@ Intended domain: `theoutfitpath.com`
 Registrar/DNS currently observed: GoDaddy
 Hosting target: Cloudflare Pages free static hosting, to be created by the account owner
 
+Update, 2026-10-26: this file's "Verified current state" is out of date. A read-only check showed https://theoutfitpath.com/ served by Cloudflare with the `_headers` policy applied, running an older build (navigation: Outfit builder / My closet / Lookbook / My style). The redesign, on-device screening, the diary and the stage 7 fixes are local only. See the stage 7 section of `SECURITY-PRIVACY-REVIEW.md`.
+
 ## Verified current state
 
 - The protected local build is served from `docs/` with no build step. `docs/_headers` now prepares CSP, clickjacking, MIME-sniffing, referrer, permissions, and `pages.dev` no-index headers for Cloudflare Pages.

@@ -1,8 +1,82 @@
 # The Outfit Path — Security and Privacy Review
 
-Review date: 2026-10-24
+Review date: 2026-10-24; stage 7 audit added 2026-10-26
 Scope: local branch `codex/supabase-wardrobe`; no public deployment, push, or security-setting mutation
 Status: pre-launch review, not a certification or guarantee
+
+The stage 7 section below is the current state. The sections after it are the October 24 review, kept as the record of what was checked then.
+
+## Stage 7 audit, 2026-10-26
+
+Scope: the current code on the Mac (`wardrobe-supabase`, including the redesign, sample ideas, style learning, on-device screening and the diary), the database migrations, the security headers, and read-only checks of the live site and the live Supabase project. No push, deployment, account setting, database or DNS change was made. No account was created and no email was sent.
+
+### Verdict
+
+Not ready for a beta with people other than John. The code-level problems found are fixed locally. The remaining blockers need John's decisions or owner-only actions; they are the High rows under "Still open".
+
+### What is live right now
+
+- theoutfitpath.com is served by Cloudflare and runs an older build: navigation reads Outfit builder / My closet / Lookbook / My style. None of the work from the redesign onward is live, including explicit-content screening, the diary and the fixes below. In the live build, item photos are saved without the explicit-content check.
+- Live headers (checked 2026-10-26): CSP with frame-ancestors 'none', X-Frame-Options DENY, nosniff, Referrer-Policy no-referrer, Permissions-Policy. No Strict-Transport-Security and no Cross-Origin-Opener-Policy.
+- Unknown paths (/.git/HEAD, /_headers, /README.md, /supabase/migrations/) return the app page, not repository files.
+- Live Supabase, read with the public key only: public signup disabled, email confirmation required, anonymous sign-ins off, email is the only provider. Anonymous read of wardrobe_documents is refused (HTTP 401, 42501). No storage buckets are visible anonymously. The schema listing requires a secret key.
+- `CLOUDFLARE-DEPLOYMENT.md` still describes the domain as parked; that is out of date.
+
+### Fixed in this stage (local commits, not deployed)
+
+| Severity | Problem | Fix | Commit |
+|---|---|---|---|
+| Medium | The security policy let the page run any script hosted on cdn.jsdelivr.net, so an injected script tag pointing at any package there would run. | Only the pinned Supabase file and the pinned recognition runtime folder are allowed. A script from another jsDelivr package was refused in the browser test. | 5e0dde4 |
+| Medium (broken feature) | With the production headers, the recognition worker could not compile WebAssembly, so Recognize would fail after the model downloaded. Reproduced with a minimal module under the same headers. | Added 'wasm-unsafe-eval', which allows WebAssembly but not eval(). The worker then compiled WebAssembly and loaded the pinned runtime. The full model was not run (Hugging Face is not reachable from the test machine). | 5e0dde4 |
+| Medium | Settings showed a password form to any signed-in account. It changed the password without the current one, so anyone at an unlocked, signed-in browser could take over the account. | Removed. Passwords are set only from an invitation or reset link. | c5d9cb8 |
+| Medium | Importing a backup stored its photos without the explicit-content check. | Every photo in a backup is checked before the import can be confirmed; a refusal or an unavailable check stops the import with nothing changed. Browser-tested for all three cases. | 9b89a45 |
+| Low | No Strict-Transport-Security or Cross-Origin-Opener-Policy header. | Added (one year, this host only, not preloaded; same-origin). | e711e7f |
+| Medium | Adding "#type=recovery" to the address of an already signed-in browser opened the "Choose a new password" screen, which changed the password without the current one. Found by the independent review. | Setup opens only when the session came from the link's own access token or Supabase reports a recovery sign-in. Covered by test-callback.cjs. | 18106ec |
+| Low | A backup import could be confirmed into a different account if someone switched accounts while its photos were being checked. Found by the independent review. | The import stops if the account changed. Browser-tested. | facac5b |
+| Low | Settings said the wardrobe and cloud row could not be opened without the authenticator. Data already in the browser is not encrypted, and the database rule is not applied. Found by the independent review. | Wording now says what the app does. | d8d5818 |
+| Low | Stored photo addresses were the one value written into the page unescaped. Not exploitable, since only checked JPEG data is stored. | Escaped. | 8d120b8 |
+
+### Checked and found sound
+
+- Text from people (piece names, notes, look and idea names, diary notes, email addresses, dates) is escaped before it is placed in the page, in editorial.js, diary.js, scanner.js and supabase-sync.js.
+- Imported backups and downloaded cloud copies are validated before they replace anything; IDs are limited to letters, digits and hyphens.
+- Each account's wardrobe, photos, sample ideas and diary are stored under that account's scope. Switching accounts hides the previous account's data at once (tested for the diary, ideas and wardrobe).
+- The cloud copy sends only a fixed list of fields. Photos, photo IDs, diary entries and sample ideas are never included.
+- Sign-in, recovery and authenticator errors use generic wording. Recovery redirects only to the approved local test address or https://theoutfitpath.com/.
+- Removing an authenticator requires a current two-step session and a second confirmation.
+- The database policies allow each signed-in account only its own row, with no access for anonymous visitors and no delete. The prepared authenticator policy matches Supabase's documented pattern.
+- The self-hosted screening files match their recorded checksums.
+
+An independent review by a separate agent, given the code but not these findings, found no injection, cross-account exposure, policy hole or cloud over-sharing it could demonstrate. Its three concrete findings are fixed above.
+
+### Still open
+
+| Severity | Item | Who |
+|---|---|---|
+| High | Deploy the current build. Until then the live site lacks screening and today's fixes. | John approves; then deploy and re-check headers live |
+| High | The authenticator database policy is not applied, so the second step is enforced only in the browser. | John runs the prepared SQL after the current build is live, then the listed tests |
+| High | No way to delete a cloud copy or an account. | John decides: build deletion, or keep real personal data out of the beta |
+| High | Privacy notice still lacks postal address, jurisdiction, legal basis, transfer and retention terms. | John, ideally with a lawyer |
+| High | Invitations and reset emails reach only the Supabase organization member until custom email (SMTP) is set up. | John decides on an email provider |
+| Medium | Server-side password rules are not visible from outside. The app asks for 12 characters, but Supabase may accept shorter passwords through its API. | John checks Authentication settings: minimum length 12, and "Secure password change" on |
+| Medium | Styles still allow 'unsafe-inline'. Scripts do not. | Later code work |
+| Medium | Recognition downloads its runtime and model from third parties at use time. | Later: self-host, as was done for screening |
+| Medium | Cloud copy is last-write-wins with no conflict check. | Later code work |
+| Low | The cloud copy has no size limit in the database. Only invited accounts can write. | Optional SQL constraint, John runs |
+| Low | The 18+ gate is a self-attestation. | Disclosed; legal advice for anything stronger |
+| Low | The old GitHub Pages copy (jmfreder123.github.io/the-outfit-path) ignores `_headers`, so it can be framed by other sites. | Keep it out of invitations; retiring it is a repository change for John to approve |
+| Low | connect-src still allows all of huggingface.co, *.hf.co and cdn.jsdelivr.net for the model download. After any future injection, those could be used to send data out. | Later: narrow once the model is self-hosted |
+| Low | Data saved in the browser (wardrobe, photos, diary) is not encrypted and stays after sign-out. | Disclosed in the privacy notice and Settings; an optional "remove this account's data from this browser on sign-out" is possible later |
+| Low | Diary entries and sample ideas are not in backups, so clearing site data or changing device loses them. | Disclosed in the privacy notice and Reset warning |
+
+### Not tested
+
+- A direct sign-up attempt against the API. Settings say signup is disabled; confirming needs an attempted account creation, which needs John's permission.
+- Physical phones, Safari on iPhone, HEIC photos, and camera capture with the current Permissions-Policy.
+- The explicit-content thresholds on real outfit photos.
+- The authenticator policy, recovery email delivery, and rate limits on the live project.
+
+# October 24 review
 
 ## Executive summary
 
