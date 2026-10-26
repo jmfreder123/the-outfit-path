@@ -49,6 +49,9 @@ assert.match(sync, /signOut\(\{ scope: 'local' \}\)/);
 // No password change for an already signed-in session: only the invitation
 // or reset-link setup screen can set a password.
 assert.doesNotMatch(sync, /cloud-password-form/);
+// Authenticator wording does not claim more than the browser gate does.
+assert.match(sync, /It does not encrypt what is already saved in this browser/);
+assert.doesNotMatch(sync, /before its wardrobe or cloud row can be opened/);
 assert.match(sync, /if \(!passwordSetupRequired\) throw Error\('Password setup is only available from an invitation or reset link\.'\)/);
 assert.match(sync, /Sign in to your private wardrobe/);
 assert.match(sync, /body\?\.classList\?\.add\('account-pending'\)/);
