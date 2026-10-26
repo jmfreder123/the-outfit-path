@@ -42,6 +42,10 @@ assert.match(headers, /X-Robots-Tag: noindex, nofollow/);
 assert.doesNotMatch(headers, /sb_secret_|service_role/i);
 
 assert.match(sync, /signOut\(\{ scope: 'local' \}\)/);
+// No password change for an already signed-in session: only the invitation
+// or reset-link setup screen can set a password.
+assert.doesNotMatch(sync, /cloud-password-form/);
+assert.match(sync, /if \(!passwordSetupRequired\) throw Error\('Password setup is only available from an invitation or reset link\.'\)/);
 assert.match(sync, /Sign in to your private wardrobe/);
 assert.match(sync, /body\?\.classList\?\.add\('account-pending'\)/);
 assert.match(sync, /The account action could not be completed\. Your wardrobe is unchanged\./);

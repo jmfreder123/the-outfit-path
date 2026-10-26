@@ -211,7 +211,7 @@
       const mfaControls = factor
         ? `<details><summary>Authenticator app: enabled</summary><p class="muted">This account must complete a second-factor challenge before its wardrobe or cloud row can be opened. Removing the factor requires an AAL2 session and explicit confirmation.</p><button class="btn" data-cloud-action="request-mfa-unenroll" data-factor-id="${html(factor.id)}">Remove authenticator app</button></details>`
         : `<details><summary>Add an authenticator app (optional)</summary><p class="muted">Have an authenticator app ready before setup. Common options include Google Authenticator, Microsoft Authenticator, and Authy. Apple Passwords can also store verification codes on supported Apple devices.</p><ol><li>Open the authenticator app on your phone.</li><li>Tap <strong>Add account</strong> or the <strong>+</strong> button.</li><li>Choose <strong>Scan QR code</strong> inside the authenticator app—not the phone's ordinary Camera app.</li><li>Then select setup below. After scanning, enter the app's current six-digit code and enable the factor.</li></ol><p class="hint">The setup QR is private. Do not screenshot, save, or share it.</p><button class="btn" data-cloud-action="begin-mfa-enrollment">Set up authenticator app</button></details>`;
-      target.innerHTML = `<h3>Invite-only cloud backup</h3><p class="muted">Signed in as ${html(user.email || 'your account')}. This browser wardrobe is isolated to that account. Upload and download are manual; photos stay on this device.</p><div class="result-actions"><button class="btn primary" data-cloud-action="upload">Upload this account copy</button><button class="btn" data-cloud-action="download">Download this account's cloud copy</button><button class="text-btn" data-cloud-action="signout">Sign out of this browser</button></div>${mfaControls}<details><summary>Copy the preserved guest wardrobe</summary><p class="muted">The separate guest copy currently has ${guest.items} pieces, ${guest.looks} saved ${guest.looks===1?'look':'looks'}, and ${guest.ratings} style ${guest.ratings===1?'rating':'ratings'}. Copying is optional, keeps the guest copy intact, and does not upload anything.</p><button class="btn" data-cloud-action="copy-guest">Review guest copy</button></details><details><summary>Finish invitation password setup</summary><form id="cloud-password-form" class="cloud-form"><label>New password<input type="password" name="password" autocomplete="new-password" minlength="12" required></label><button class="btn" type="submit">Set password</button></form><p class="hint">Only use this after opening John M. Fredericks' invitation link in this browser.</p></details><p class="hint">Cloud and account deletion are not available in this preview. <a href="privacy.html">Read the draft privacy notice.</a></p>`;
+      target.innerHTML = `<h3>Invite-only cloud backup</h3><p class="muted">Signed in as ${html(user.email || 'your account')}. This browser wardrobe is isolated to that account. Upload and download are manual; photos stay on this device.</p><div class="result-actions"><button class="btn primary" data-cloud-action="upload">Upload this account copy</button><button class="btn" data-cloud-action="download">Download this account's cloud copy</button><button class="text-btn" data-cloud-action="signout">Sign out of this browser</button></div>${mfaControls}<details><summary>Copy the preserved guest wardrobe</summary><p class="muted">The separate guest copy currently has ${guest.items} pieces, ${guest.looks} saved ${guest.looks===1?'look':'looks'}, and ${guest.ratings} style ${guest.ratings===1?'rating':'ratings'}. Copying is optional, keeps the guest copy intact, and does not upload anything.</p><button class="btn" data-cloud-action="copy-guest">Review guest copy</button></details><p class="hint">Cloud and account deletion are not available in this preview. <a href="privacy.html">Read the draft privacy notice.</a></p>`;
     } catch (error) {
       await syncIdentity(null);
       target.innerHTML = '<h3>Optional cloud backup</h3><p class="warning">Cloud backup is temporarily unavailable. Signed-in account data is hidden; the separate guest copy is shown until the session can be verified.</p>';
@@ -258,7 +258,12 @@
     message('Password set for your invited account.');
   }
 
+  // A new password is set only from an invitation or password-reset link
+  // (the account-setup screen). There is no change-password form for an
+  // already signed-in session, which would let anyone at an unlocked,
+  // signed-in browser replace the password without knowing it.
   async function finishAccountSetup(form) {
+    if (!passwordSetupRequired) throw Error('Password setup is only available from an invitation or reset link.');
     await updatePassword(form);
     passwordSetupRequired = false;
     setupMode = null;
@@ -428,7 +433,7 @@
   }
 
   document.addEventListener('submit', async event => {
-    if (!['cloud-auth-form', 'cloud-password-form', 'auth-entry-form', 'account-setup-form', 'password-recovery-form', 'mfa-challenge-form', 'mfa-enrollment-form'].includes(event.target.id)) return;
+    if (!['cloud-auth-form', 'auth-entry-form', 'account-setup-form', 'password-recovery-form', 'mfa-challenge-form', 'mfa-enrollment-form'].includes(event.target.id)) return;
     event.preventDefault();
     event.target.querySelectorAll('button').forEach(button => { button.disabled = true; });
     try {
@@ -437,7 +442,6 @@
       else if (event.target.id === 'mfa-challenge-form') await verifyMfa(event.target);
       else if (event.target.id === 'mfa-enrollment-form') await finishMfaEnrollment(event.target);
       else if (event.target.id === 'account-setup-form') await finishAccountSetup(event.target);
-      else await updatePassword(event.target);
     } catch (error) {
       const signIn = ['cloud-auth-form', 'auth-entry-form'].includes(event.target.id);
       const recovery = event.target.id === 'password-recovery-form';
