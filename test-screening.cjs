@@ -90,6 +90,11 @@ assert.equal(S.message({ ok: true }), "");
   assert(pos("pendingImport=null") < pos("screenPhotoData(importPhotos"), "an earlier pending import is dropped first");
   assert(pos("screenPhotoData(importPhotos") < pos("pendingImport=checkedImport"), "checked before it can be imported");
   assert(pos("pendingImport=checkedImport") < pos("data-action=\"confirmimport\""));
+  // The account must not change while photos are being checked.
+  assert(pos("const importScope=activeDataScope") < pos("screenPhotoData(importPhotos"));
+  assert(pos("screenPhotoData(importPhotos") < pos("if(importScope!==activeDataScope)"));
+  assert(pos("if(importScope!==activeDataScope)") < pos("pendingImport=checkedImport"));
+  assert(/activeDataScope=next;data=loadDataForScope\(next\);[^\n]{0,200}?pendingImport=null/.test(app), "switching accounts drops a pending import");
   assert(imp.includes("{ok:false,reason:'unavailable'}"), "no screening module means no import with photos");
 
   // Self-hosted files are present and unmodified.
