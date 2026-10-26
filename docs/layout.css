@@ -1740,6 +1740,177 @@ header nav button:not(.active) {
   }
 }
 
+/* How it works: header link (Help on phones), page and introduction */
+header .header-help {
+  padding: 10px 0 10px 32px;
+  color: #d8d3cc;
+  font: inherit;
+  font-size: 13px;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid #8b8781;
+  cursor: pointer;
+}
+
+header .header-help.active {
+  color: #fffaf2;
+}
+
+header .header-help + .profile {
+  padding-left: 24px;
+  border-left: 0;
+}
+
+.help-short {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  header {
+    column-gap: 16px;
+  }
+
+  header .header-help,
+  header .header-help.active {
+    margin-left: auto;
+    padding: 10px 0;
+    color: #1d1d1b;
+    border-left: 0;
+  }
+
+  header .header-help + .profile {
+    margin-left: 0;
+    padding-left: 16px;
+  }
+
+  .help-long {
+    display: none;
+  }
+
+  .help-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 360px) {
+  header .brand {
+    font-size: 23px;
+    white-space: nowrap;
+  }
+
+  header .header-help + .profile {
+    padding-left: 8px;
+  }
+
+  header {
+    column-gap: 12px;
+  }
+}
+
+.saved-tip {
+  max-width: 760px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  color: #4b4842;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #fffdf9;
+  border: 1px solid #e4ded3;
+  border-radius: 12px;
+}
+
+.help-page {
+  max-width: 760px;
+}
+
+.help-intro {
+  margin: 4px 0 8px;
+}
+
+.help-section {
+  margin-top: 28px;
+}
+
+.help-section h2 {
+  margin: 0 0 8px;
+  font: 400 24px/1.2 var(--serif);
+}
+
+.help-section p,
+.help-more {
+  margin: 0 0 10px;
+  color: #2f2d29;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.help-more {
+  margin-top: 28px;
+  color: #77736b;
+}
+
+.intro-dialog {
+  width: min(460px, calc(100% - 32px));
+  padding: 28px;
+  color: #1d1d1b;
+  background: #f5f1ea;
+  border: 0;
+  border-radius: 18px;
+}
+
+.intro-dialog::backdrop {
+  background: rgb(29 29 27 / 55%);
+}
+
+.intro-count {
+  margin: 0 0 8px;
+  color: #77736b;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.intro-dialog h2 {
+  margin: 0 0 10px;
+  font: 400 28px/1.15 var(--serif);
+}
+
+.intro-body {
+  margin: 0;
+  color: #2f2d29;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.intro-dots {
+  display: flex;
+  gap: 6px;
+  margin: 20px 0;
+}
+
+.intro-dots span {
+  width: 7px;
+  height: 7px;
+  background: #d8d2c6;
+  border-radius: 50%;
+}
+
+.intro-dots span.on {
+  background: #1d1d1b;
+}
+
+.intro-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.intro-more {
+  margin: 14px 0 0;
+  color: #77736b;
+  font-size: 13px;
+}
+
 /* On the Plan board, a photo-less piece keeps its color tile. */
 .flatlay-tile .photo-frame.color-tile {
   display: grid;

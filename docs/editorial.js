@@ -1577,7 +1577,10 @@
     const others = data.looks.filter((l) =>
       l.plannedDate && l.plannedDate !== planningDate
     );
-    return `<div class="saved-page"><div class="saved-head"><h1>Saved looks</h1><p>Your saved looks by date. Opening a look is read only until you choose Edit.</p></div>${dateControls()}<section class="saved-group saved-day" aria-labelledby="saved-day-heading"><h2 id="saved-day-heading">${
+    const tip = data.looks.length
+      ? ""
+      : '<p class="saved-tip">To save a look, build one in Plan and choose Save look. It appears here under its day, where you can rate it.</p>';
+    return `<div class="saved-page"><div class="saved-head"><h1>Saved looks</h1><p>Your saved looks by date. Opening a look is read only until you choose Edit.</p></div>${tip}${dateControls()}<section class="saved-group saved-day" aria-labelledby="saved-day-heading"><h2 id="saved-day-heading">${
       esc(day)
     }${planningDate === today ? " · today" : ""}</h2>${
       forDay.length
