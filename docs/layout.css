@@ -1495,3 +1495,15 @@ header nav button:not(.active) {
     font-size: 16px;
   }
 }
+
+/* Small inline text button (for example "Remove examples") */
+.plan-link {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}

@@ -1175,17 +1175,48 @@
         }</p>`
     }</div>`;
   }
-  // Untouched starter records stay in Closet but are not counted as the
-  // person's own clothes until edited or deliberately added.
+  // New closets start empty. Accounts created earlier may still hold the old
+  // starter records: they stay in Closet but are not counted as the person's
+  // own clothes until edited, and can be removed in one confirmed step.
+  const STARTER_KEYS = ["name", "type", "color", "hex", "style", "season", "notes", "photoId"];
+  function untouchedStarters() {
+    const originals = new Map(seed().map((s) => [s.id, s]));
+    return data.items.filter((i) => {
+      const original = i.id.startsWith("starter-") && !i.ownedCopy && originals.get(i.id);
+      return original && STARTER_KEYS.every((key) => (i[key] || "") === (original[key] || ""));
+    });
+  }
   function starterNote() {
-    const starters = data.items.filter((i) =>
-      i.id.startsWith("starter-") && !owned().some((o) => o.id === i.id)
-    ).length;
+    const starters = untouchedStarters().length;
     return starters
       ? `Only your own pieces are suggested here. Closet also keeps ${starters} starter example${
         starters === 1 ? "" : "s"
-      }; they count as yours once you edit one or add your own.`
+      }; they count as yours once you edit one or add your own. <button class="plan-link" data-remove-examples>Remove example${
+        starters === 1 ? "" : "s"
+      }</button>`
       : "Only your available pieces are suggested.";
+  }
+  function askRemoveExamples() {
+    const n = untouchedStarters().length;
+    if (!n) return;
+    openModal(
+      "Remove the example pieces?",
+      `<p>This removes ${n} example piece${n === 1 ? "" : "s"} you haven't edited from your closet in this browser. Pieces you added or edited, saved looks, ratings and photos stay as they are.</p><div class="diary-actions"><button class="diary-secondary" data-action="close">Keep them</button><button class="diary-danger" data-confirm-remove-examples>Remove examples</button></div>`,
+    );
+  }
+  function removeExamples() {
+    $("#modal").close();
+    const remove = new Set(untouchedStarters().map((i) => i.id));
+    if (!remove.size) return;
+    const before = data.items;
+    data.items = data.items.filter((i) => !remove.has(i.id));
+    if (!save()) {
+      data.items = before;
+      toast("The examples could not be removed. Nothing was changed.");
+      return;
+    }
+    toast(`Removed ${remove.size} example piece${remove.size === 1 ? "" : "s"}.`);
+    render();
   }
   function wardrobePane() {
     const list = pool().filter(filterMatch);
@@ -1692,6 +1723,8 @@
       "deleteLook",
       "confirmDeleteLook",
       "rateLook",
+      "removeExamples",
+      "confirmRemoveExamples",
     ].some((k) => d[k] !== undefined) ||
       ["newlook", "restart", "savelook", "shuffle", "editpath"].includes(
         d.action,
@@ -1704,6 +1737,14 @@
     event.stopImmediatePropagation();
     if (target.disabled) return;
     let after = "";
+    if (d.removeExamples !== undefined) {
+      askRemoveExamples();
+      return;
+    }
+    if (d.confirmRemoveExamples !== undefined) {
+      removeExamples();
+      return;
+    }
     if (d.rateLook) {
       rateLook(d.rateLook, Number(d.rateValue));
       repaint(`[data-rate-look="${d.rateLook}"][data-rate-value="${d.rateValue}"]`);

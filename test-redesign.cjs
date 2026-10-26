@@ -113,7 +113,7 @@ function submit(name) {
     });
   }
 }
-assert.equal(run("data.items.length"), 42);
+assert.equal(run("data.items.length"), 0, "a new closet starts empty");
 assert.equal(state().draft.items.length, 0);
 assert(run('renderBuilder().includes("My wardrobe")'));
 assert.equal(
@@ -132,7 +132,7 @@ assert.equal(writes, 0);
 assert(!run('renderBuilder().includes("draggable")'));
 assert(!run('renderBuilder().includes("data-outfit-slot")'));
 assert(!run('renderBuilder().includes("Choose myself")'));
-run("data.items[0].name='User customized skirt'");
+run("data.items=seed(); data.items[0].name='User customized skirt'");
 click({ wardrobeSource: "owned" });
 assert(run('renderBuilder().includes("User customized skirt")'));
 run("data=initial()");
@@ -146,7 +146,7 @@ assert(
     ["sneakers", "boots", "flats"].includes(i.type)
   ),
 );
-assert.equal(run("data.items.length"), 42);
+assert.equal(run("data.items.length"), 0, "samples are never added to the closet");
 assert.equal(writes, 0);
 assert(!run('renderBuilder().includes("data-save-draft")'), "a sample look can never be saved as an owned look");
 assert(run('renderBuilder().includes("data-save-idea >Save as idea")'), "samples save as ideas instead");
@@ -361,15 +361,30 @@ assert(!src.includes("addEventListener('drag"));
   sandbox.window.qa.reset();
 }
 
-// Starter records are explained, not counted as owned or hidden.
+// Accounts created before closets started empty still have starter records.
+// They are explained, not counted as owned or hidden.
 {
   sandbox.window.qa.reset();
-  run("data=initial()");
+  run("data={...initial(),items:seed()}");
   click({ wardrobeSource: "owned" });
   const html = run("renderBuilder()");
   assert(html.includes("My wardrobe <span>0</span>"));
   assert(html.includes("Closet also keeps 42 starter examples"), "starter records explained next to the empty owned count");
   assert.equal(run("data.items.length"), 42, "no starter record removed");
+  // They can be removed in one confirmed step; edited starters and the
+  // person's own pieces stay.
+  run("data.items[3].name='My edited skirt'; data.items.push({...seed()[15],id:'mine',ownedCopy:true})");
+  assert(html.includes("data-remove-examples"));
+  click({ removeExamples: "" });
+  assert(el("#modal-body").innerHTML.includes("This removes 41 example pieces you haven't edited"));
+  assert.equal(run("data.items.length"), 43, "nothing removed before confirming");
+  fail = true;
+  click({ confirmRemoveExamples: "" });
+  fail = false;
+  assert.equal(run("data.items.length"), 43, "storage failure changes nothing");
+  click({ confirmRemoveExamples: "" });
+  assert.deepEqual(JSON.parse(run("JSON.stringify(data.items.map(i=>i.id))")), ["starter-3", "mine"]);
+  assert(!run("renderBuilder()").includes("data-remove-examples"), "no button once none are left");
   sandbox.window.qa.reset();
 }
 

@@ -225,7 +225,7 @@ assert(looksHtml.includes("&lt;img src=x"));
 
 // A starter ID in an idea always shows the sample version, never a person's
 // edited record with the same ID.
-run("data.items.find(i=>i.id==='starter-15').name='My edited shirt'");
+run("data.items=seed(); data.items.find(i=>i.id==='starter-15').name='My edited shirt'");
 store.set(guestKey, JSON.stringify([{ id: "st1", name: "Starter", plannedDate: state().planningDate, itemIds: ["starter-15"] }]));
 click({ openIdea: "st1" });
 assert(el("#modal-body").innerHTML.includes("Discard draft and open"), "a dirty draft is not replaced silently");
@@ -266,7 +266,7 @@ store.set(guestKey, good);
   click({ action: "confirmresetall" });
   assert.equal(store.get(guestKey), undefined, "guest ideas removed by reset everything");
   assert.equal(JSON.parse(store.get("outfit-path-ideas-v1:user%3Aacct_b")).length, 1, "other account's ideas untouched");
-  assert(run("data.items.length") > 0, "starter closet restored by the app's reset");
+  assert.equal(run("data.items.length"), 0, "the app's reset leaves an empty closet");
   // Ideas are not part of the data record that cloud backup projects.
   assert(!run("JSON.stringify(data)").includes("itemIds"));
   console.log(

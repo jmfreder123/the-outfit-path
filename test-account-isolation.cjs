@@ -62,12 +62,12 @@ const run = code => vm.runInContext(code, appSandbox);
 
   await run('switchDataScope("account-a")');
   assert.equal(run('activeDataScope'), 'user:account-a');
-  assert.equal(run('data.items.length'), 42, 'new account starts without guest wardrobe');
+  assert.equal(run('data.items.length'), 0, 'new account starts empty, without the guest wardrobe');
   run('data.name="account A"; save()');
 
   await run('switchDataScope("account-b")');
   assert.equal(run('data.name'), '');
-  assert.equal(run('data.items.length'), 42);
+  assert.equal(run('data.items.length'), 0);
   await run('switchDataScope("account-a")');
   assert.equal(run('data.name'), 'account A', 'account A data survives switching');
   await run('switchDataScope(null)');
