@@ -87,6 +87,26 @@
     }
   }
 
+  // Checks photos already stored as JPEG data URLs (for example inside an
+  // imported backup), one at a time. Stops at the first refusal. Returns
+  // { ok: true } or { ok: false, reason, index }. Nothing is stored.
+  async function screenPhotoData(urls, progress) {
+    for (let index = 0; index < urls.length; index++) {
+      progress?.(index + 1, urls.length);
+      const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+=*)$/.exec(String(urls[index]));
+      if (!match) return { ok: false, reason: "unavailable", index };
+      let result;
+      try {
+        const bytes = Uint8Array.from(atob(match[1]), (c) => c.charCodeAt(0));
+        result = await screenFile(new Blob([bytes], { type: "image/jpeg" }));
+      } catch {
+        result = { ok: false, reason: "unavailable" };
+      }
+      if (!result.ok) return { ...result, index };
+    }
+    return { ok: true };
+  }
+
   function message(result) {
     if (result?.ok) return "";
     if (result?.reason === "explicit") {
@@ -101,6 +121,7 @@
   globalThis.outfitPathScreening = Object.freeze({
     screen,
     screenFile,
+    screenPhotoData,
     decide,
     message,
     LIMITS,

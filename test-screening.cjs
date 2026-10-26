@@ -73,6 +73,25 @@ assert.equal(S.message({ ok: true }), "");
   // No image decoding available: fail closed.
   assert.equal((await S.screenFile({})).reason, "unavailable");
 
+  // Photos inside an imported backup: malformed data or no screening fails
+  // closed; the import waits for the check before it can be confirmed.
+  assert.equal((await S.screenPhotoData(["data:image/png;base64,AAAA"])).reason, "unavailable");
+  sandbox.atob = (x) => Buffer.from(x, "base64").toString("latin1");
+  sandbox.Blob = Blob;
+  const seen = [];
+  const r = await S.screenPhotoData(["data:image/jpeg;base64,/9j/AAAA"], (n, t) => seen.push(`${n}/${t}`));
+  assert.equal(r.reason, "unavailable");
+  assert.deepEqual(seen, ["1/1"]);
+  assert.equal((await S.screenPhotoData([])).ok, true, "no photos, nothing to check");
+  const app = fs.readFileSync("docs/app.js", "utf8");
+  const imp = app.slice(app.indexOf("if(e.target.id==='import-file')"));
+  const pos = (t) => imp.indexOf(t);
+  assert(pos("screenPhotoData(importPhotos") > 0);
+  assert(pos("pendingImport=null") < pos("screenPhotoData(importPhotos"), "an earlier pending import is dropped first");
+  assert(pos("screenPhotoData(importPhotos") < pos("pendingImport=checkedImport"), "checked before it can be imported");
+  assert(pos("pendingImport=checkedImport") < pos("data-action=\"confirmimport\""));
+  assert(imp.includes("{ok:false,reason:'unavailable'}"), "no screening module means no import with photos");
+
   // Self-hosted files are present and unmodified.
   const readme = fs.readFileSync("docs/vendor/nsfwjs/README.txt", "utf8");
   for (const file of S.FILES) {
@@ -102,7 +121,7 @@ assert.equal(S.message({ ok: true }), "");
   assert(at("if(!screened.ok)") < at("openModal("));
   assert(body.includes("{ok:false,reason:'unavailable'}"), "no screening module means no photo");
   console.log(
-    "PASS: decision rule on synthetic vectors (allow ordinary and swimwear-style scores, reject explicit, refuse unclear), fail closed on bad output, missing model or decoding, pinned unmodified files and licences, CSP unchanged, scanner screens before review.",
+    "PASS: decision rule on synthetic vectors (allow ordinary and swimwear-style scores, reject explicit, refuse unclear), fail closed on bad output, missing model or decoding, pinned unmodified files and licences, CSP limited to pinned files, scanner screens before review, imported backup photos checked before import.",
   );
 })().catch((e) => {
   console.error(e);
