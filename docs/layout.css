@@ -1313,6 +1313,7 @@ header nav button:not(.active) {
   }
 }
 
+.diary-pick .closet-file,
 .diary-pick .diary-file {
   position: absolute;
   inset: 0;
@@ -1508,12 +1509,28 @@ header nav button:not(.active) {
   cursor: pointer;
 }
 
-/* Pieces with no photo are drawn in their own color. */
-.drawn-piece svg {
-  width: 72%;
-  height: 72%;
-  max-width: 180px;
-  max-height: 180px;
+/* Pieces with no photo: a plain tile in the piece's color, type in text. */
+.color-tile {
+  display: grid;
+  place-items: end start;
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: var(--tile, #d9d2bd);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.color-tile-label {
+  color: #fffaf2;
+  font: 500 12px/1.2 var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.color-tile.is-light .color-tile-label {
+  color: #1d1d1b;
 }
 
 /* Closet page */
@@ -1721,4 +1738,11 @@ header nav button:not(.active) {
     align-items: flex-start;
     gap: 0;
   }
+}
+
+/* On the Plan board, a photo-less piece keeps its color tile. */
+.flatlay-tile .photo-frame.color-tile {
+  display: grid;
+  padding: 10px 12px;
+  background: var(--tile, #d9d2bd);
 }

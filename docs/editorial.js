@@ -261,13 +261,22 @@
       );
     return (!item.photoId && faithful && catalogAssets[item.id]) || null;
   }
+  const TYPE_LABEL = {
+    skirt: "Skirt", pants: "Pants", dress: "Dress", top: "Top", boots: "Boots",
+    heels: "Heels", flats: "Flats", sneakers: "Sneakers", sandals: "Sandals",
+    layer: "Layer", bag: "Bag", jewelry: "Jewelry",
+  };
   garmentArt = function editorialGarmentArt(item) {
     const asset = assetFor(item);
-    // A piece with no photo is drawn in its own color.
+    // A piece with no photo is shown as a plain tile in its own color, with
+    // its type in text.
     if (!asset && !item.photoId) {
-      return `<span class="photo-frame drawn-piece" role="img" aria-label="${
+      const hex = /^#[0-9a-fA-F]{6}$/.test(item.hex) ? item.hex : "#d9d2bd";
+      const [r, g, b] = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16));
+      const light = 0.299 * r + 0.587 * g + 0.114 * b > 150;
+      return `<span class="photo-frame color-tile${light ? " is-light" : ""}" style="--tile:${hex}" role="img" aria-label="${
         esc(item.name)
-      }">${art(item.type, /^#[0-9a-fA-F]{6}$/.test(item.hex) ? item.hex : "#d9d2bd")}</span>`;
+      }, no photo"><span class="color-tile-label">${esc(TYPE_LABEL[item.type] || "Piece")}</span></span>`;
     }
     if (!asset) {
       return `<span class="photo-frame" ${

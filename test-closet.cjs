@@ -108,8 +108,9 @@ render();`);
 html = main();
 assert.equal((html.match(/class="closet-card/g) || []).length, 4);
 assert(html.includes("data:image/jpeg;base64,AAAA"), "photo shown");
-assert.equal((html.match(/drawn-piece/g) || []).length, 3, "pieces without photos are drawn");
-assert(html.includes("#b4503e"), "drawn in the piece's own color");
+assert.equal((html.match(/color-tile[" ]/g) || []).length, 3, "pieces without photos are plain color tiles");
+assert(html.includes("--tile:#b4503e"), "tile in the piece's own color");
+assert(!/<svg/.test(html), "no drawings");
 assert(!html.includes("<b>Shirt</b>") && html.includes("&lt;b&gt;Shirt&lt;/b&gt;"), "names are escaped");
 assert(html.includes("4 pieces · 3 available"));
 assert(html.includes('closet-card is-away') && html.includes("Not available"));
@@ -142,6 +143,55 @@ fail = false;
 assert.equal(run("data.items.find(i=>i.id==='a2').available"), false, "failed save undone");
 assert.equal(el("#toast").textContent, "This change could not be saved. Nothing was changed.");
 
+// Add a photo: only for pieces without one; checked before anything is
+// stored; a refusal or failed save changes nothing.
+html = main();
+assert(html.includes('data-closet-photo="a2"') && !html.includes('data-closet-photo="a1"'), "offered only without a photo");
+let stored = {};
+sandbox.storePhotos = async (photos) => Object.assign(stored, photos);
+sandbox.preparePhoto = async () => ({ photo: "data:image/jpeg;base64,BBBB" });
+let verdict = { ok: false, reason: "explicit" };
+sandbox.outfitPathScreening = { screenFile: async () => verdict, message: () => "This photo can't be saved." };
+const changeListeners = listeners.get("change") || [];
+const pick = async () => {
+  const input = { files: [{ name: "x.jpg" }], value: "x", classList: { contains: (c) => c === "closet-file" } };
+  for (const r of changeListeners) r.h({ target: input });
+  for (let k = 0; k < 5; k++) await new Promise((r) => setTimeout(r, 0));
+  return input;
+};
+(async () => {
+  click({ closetPhoto: "a2" });
+  assert(el("#modal-body").innerHTML.includes("Add a photo") && el("#modal-body").innerHTML.includes("closet-file"));
+  const input = await pick();
+  assert.equal(input.value, "", "chosen file let go");
+  assert.equal(el("#closet-photo-status").textContent, "This photo can't be saved.");
+  assert.deepEqual(Object.keys(stored), [], "refused photo not stored");
+  assert.equal(run("data.items.find(i=>i.id==='a2').photoId"), undefined);
+  verdict = { ok: true };
+  fail = true;
+  await pick();
+  fail = false;
+  assert.equal(run("data.items.find(i=>i.id==='a2').photoId"), undefined, "failed save undone");
+  stored = {};
+  await pick();
+  const pid = run("data.items.find(i=>i.id==='a2').photoId");
+  assert(pid && stored[pid] === "data:image/jpeg;base64,BBBB", "stored under the piece's new photo ID");
+  assert.equal(run(`photoCache.get('${pid}')`), "data:image/jpeg;base64,BBBB");
+  assert.equal(el("#toast").textContent, "Photo added.");
+  assert(!main().includes('data-closet-photo="a2"'), "no longer offered");
+  delete sandbox.outfitPathScreening;
+  run("data.items.find(i=>i.id==='a3').photoId=undefined");
+  click({ closetPhoto: "a3" });
+  stored = {};
+  await pick();
+  assert.deepEqual(Object.keys(stored), [], "no screening, nothing stored");
+  rest();
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+
+function rest() {
 // Old example pieces: explained, with the confirmed remove action.
 run("data.items=[...data.items,...seed().slice(0,3)]; render()");
 html = main();
@@ -153,5 +203,6 @@ click({ confirmRemoveExamples: "" });
 assert.equal(run("data.items.length"), 4);
 assert(!main().includes("closet-examples"));
 console.log(
-  "PASS: Closet empty state; photos, drawings and not-available pieces; escaped names; group filters and search; availability saved or undone; old examples explained and removable.",
+  "PASS: Closet empty state; photos, color tiles and not-available pieces; add a photo checked before storing; escaped names; group filters and search; availability saved or undone; old examples explained and removable.",
 );
+}

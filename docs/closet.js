@@ -37,7 +37,9 @@
       i.available ? "" : '<span class="closet-away">Not available</span>'
     }</div><div class="closet-body"><h3>${esc(i.name)}</h3><p>${esc(cap(i.color))} · ${
       esc(TYPE_NAMES[i.type] || i.type)
-    }</p></div><div class="closet-actions"><button data-edit="${esc(i.id)}" aria-label="Edit ${
+    }</p></div><div class="closet-actions">${
+      i.photoId ? "" : `<button data-closet-photo="${esc(i.id)}" aria-label="Add a photo of ${esc(i.name)}">Add a photo</button>`
+    }<button data-edit="${esc(i.id)}" aria-label="Edit ${
       esc(i.name)
     }">Edit</button><button data-toggle="${esc(i.id)}" aria-label="${
       i.available ? "Mark not available" : "Mark available"
@@ -79,6 +81,81 @@
   // app.js decides which page to draw; only the Closet page is replaced.
   renderCloset = closetPage;
 
+  // Add a photo to a piece that has none. The photo is checked for explicit
+  // content on this device, reduced like a scanned photo, and stored only
+  // after it passes. Nothing changes if any step fails.
+  let photoFor = null;
+  function askPhoto(id) {
+    const item = data.items.find((i) => i.id === id);
+    if (!item || item.photoId) return;
+    photoFor = { id, scope: activeDataScope };
+    openModal(
+      "Add a photo",
+      `<p>Take or choose a photo of ${esc(item.name)} on its own, against a plain background. It is checked on this device and stays on it.</p><div class="diary-pick-row"><label class="diary-pick diary-camera"><input class="closet-file" type="file" accept="image/*" capture="environment">Take a photo</label><label class="diary-pick"><input class="closet-file" type="file" accept="image/*">Choose a photo</label></div><p id="closet-photo-status" class="diary-status" role="status" aria-live="polite"></p>`,
+    );
+  }
+  async function receivePhoto(input) {
+    const file = input.files?.[0];
+    input.value = "";
+    const target = photoFor;
+    if (!file || !target) return;
+    const status = (text) => {
+      const el = document.querySelector("#closet-photo-status");
+      if (el) el.textContent = text;
+    };
+    for (const i of document.querySelectorAll(".closet-file")) i.disabled = true;
+    status("Checking this photo on your device… The first check can take a few seconds.");
+    const enable = () => {
+      for (const i of document.querySelectorAll(".closet-file")) i.disabled = false;
+    };
+    const screening = globalThis.outfitPathScreening;
+    const checked = screening ? await screening.screenFile(file) : { ok: false, reason: "unavailable" };
+    if (photoFor !== target) return;
+    if (!checked.ok) {
+      enable();
+      status(screening ? screening.message(checked) : "Photo checking isn't available right now, so photos can't be saved.");
+      return;
+    }
+    let photo;
+    try {
+      photo = (await preparePhoto(file)).photo;
+    } catch (error) {
+      if (photoFor !== target) return;
+      enable();
+      status(error?.message || "This photo couldn't be opened.");
+      return;
+    }
+    const item = data.items.find((i) => i.id === target.id);
+    if (photoFor !== target || target.scope !== activeDataScope || !item || item.photoId) return;
+    const photoId = uid();
+    try {
+      await storePhotos({ [photoId]: photo });
+    } catch {
+      enable();
+      status("The photo couldn't be saved. Free some device storage and try again.");
+      return;
+    }
+    if (photoFor !== target || target.scope !== activeDataScope) return;
+    item.photoId = photoId;
+    if (!save()) {
+      delete item.photoId;
+      enable();
+      status("The photo couldn't be saved. Nothing was changed.");
+      return;
+    }
+    photoCache.set(photoId, photo);
+    photoFor = null;
+    $("#modal").close();
+    render();
+    toast("Photo added.");
+  }
+  document.addEventListener("change", (event) => {
+    if (event.target?.classList?.contains("closet-file")) receivePhoto(event.target);
+  });
+  document.querySelector("#modal")?.addEventListener?.("close", () => {
+    photoFor = null;
+  });
+
   // Availability: same action as before, but a failed save is undone.
   function toggleAvailable(id) {
     const item = data.items.find((i) => i.id === id);
@@ -98,6 +175,12 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       toggleAvailable(b.dataset.toggle);
+      return;
+    }
+    if (b?.dataset?.closetPhoto) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      askPhoto(b.dataset.closetPhoto);
       return;
     }
     if (!b || b.dataset.closetGroup === undefined) return;
