@@ -6,6 +6,12 @@
   const callbackType = callbackParams.get('type');
   let setupMode = callbackType === 'recovery' ? 'recovery' : callbackType === 'invite' ? 'invite' : null;
   let passwordSetupRequired = Boolean(setupMode);
+  // The URL alone does not prove a real invitation or reset link: anyone can
+  // add #type=recovery to the address. For a signed-in browser, setup mode is
+  // kept only if the session was created from the link's own access token, or
+  // Supabase reported a PASSWORD_RECOVERY sign-in.
+  const callbackToken = callbackParams.get('access_token') || '';
+  let setupProven = false;
   const hasPlaceholder = value => !value || /YOUR_|PLACEHOLDER/i.test(value);
   const decodeRole = key => {
     try {
@@ -144,6 +150,14 @@
   }
 
   async function syncIdentity(user, requestedRevision = ++identityRevision) {
+    if (user && passwordSetupRequired && !setupProven) {
+      const { data } = await client.auth.getSession();
+      setupProven = Boolean(callbackToken) && data?.session?.access_token === callbackToken;
+      if (!setupProven) {
+        passwordSetupRequired = false;
+        setupMode = null;
+      }
+    }
     if (user && !passwordSetupRequired) {
       const status = await mfaStatus();
       if (requestedRevision !== identityRevision) return false;
@@ -267,6 +281,7 @@
     await updatePassword(form);
     passwordSetupRequired = false;
     setupMode = null;
+    setupProven = false;
     if (globalThis.history?.replaceState && globalThis.location?.pathname) {
       globalThis.history.replaceState(null, '', globalThis.location.pathname);
     }
@@ -497,6 +512,7 @@
     if (event === 'PASSWORD_RECOVERY') {
       setupMode = 'recovery';
       passwordSetupRequired = true;
+      setupProven = true;
     }
     queueMicrotask(async () => {
       await syncIdentity(session?.user || null);
